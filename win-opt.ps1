@@ -1,13 +1,13 @@
-# win-opt.ps1 - Windows Optimizer Wizard, v0.1.2 (Apprentice only)
+# win-opt.ps1 - Windows Optimizer Wizard, v0.1.3 (Apprentice only)
 # Windows 10 and Windows 11. PowerShell 5.1 only. Run as administrator.
-# What it does: asks 2 start questions, creates a restore point, flushes DNS,
+# What it does: checks the internet quietly, creates a restore point, flushes DNS,
 # cleans old temp files (only after you say yes), opens Storage Sense guidance,
 # optimizes the system drive, offers a power-plan change, and lists startup apps.
 # What it never does: no registry edits, no DISM/SFC/chkdsk, no cleanmgr auto-run,
 # no network reset, no driver/app updates, no disabling of anything.
 # Wizard and Archmage modes are NOT implemented in v0.1.2.
 
-$Script:Version = "0.1.2"
+$Script:Version = "0.1.3"
 $Script:Results = @()
 
 # --- System drive (H2): resolved once, never assumed to be C: ---
@@ -205,20 +205,21 @@ if ($null -eq $mode) {
 Write-Header
 $TotalSteps = 8
 
-# --- Step 1: two start questions (recorded for later phases, not acted on yet) ---
-Write-Step -Number 1 -Total $TotalSteps -Title "Two quick questions" -Info "Your answers are saved in the log for the later Wizard and Archmage modes. Nothing is changed here."
-$wuFailing = Read-YesNo "Is Windows Update failing on this PC (updates stuck or erroring)?"
-$netBroken = Read-YesNo "Is your internet broken on this PC (websites will not load at all)?"
-Write-Host "  Recorded: Windows Update failing = $wuFailing ; Internet broken = $netBroken"
+# --- Step 1: internet check (silent - no questions here) ---
+Write-Step -Number 1 -Total $TotalSteps -Title "Internet check (silent)" -Info "Checked quietly in the background - no questions. If the ping fails, it is only noted in the log; Apprentice does not reset the network and needs no internet."
 Show-Command "Test-Connection -ComputerName 8.8.8.8 -Count 2 -Quiet"
 try {
     $pingOk = Test-Connection -ComputerName 8.8.8.8 -Count 2 -Quiet -ErrorAction Stop
 } catch {
     $pingOk = $false
 }
-if ($pingOk) { Write-Host "  Result: internet reachable (ping to 8.8.8.8 worked)." -ForegroundColor Green }
-else { Write-Host "  Result: ping to 8.8.8.8 failed. This is only a note for now - Apprentice does not reset the network." -ForegroundColor Yellow }
-Add-Result "Start questions + ping check" "Done"
+if ($pingOk) {
+    Write-Host "  Result: internet reachable (ping to 8.8.8.8 worked)." -ForegroundColor Green
+    Add-Result "Internet check" "Done (reachable)"
+} else {
+    Write-Host "  Result: ping to 8.8.8.8 failed. Noted in the log only." -ForegroundColor Yellow
+    Add-Result "Internet check" "Done (unreachable, noted only)"
+}
 
 # --- Step 2: restore point (safety net - abort if it cannot be made) ---
 Write-Step -Number 2 -Total $TotalSteps -Title "Restore point (safety net)" -Info "Before anything changes, Windows takes a snapshot so system changes can be undone. A restore point is NOT a backup - your personal files are not protected by it."
@@ -327,8 +328,7 @@ Write-Host "  In that page: turn on Storage Sense, then use 'Configure Storage S
 Write-Host "  or run it now'. Do NOT turn on automatic Downloads cleanup unless you"
 Write-Host "  want Windows to delete old downloads by itself."
 try { Start-Process ms-settings:storage -ErrorAction Stop } catch { Write-Host "  Could not open Settings automatically - open it by hand: Settings > System > Storage." -ForegroundColor Yellow }
-Write-Host "  Press Enter when you are done in Settings (or right away to skip this step)."
-Read-Host | Out-Null
+Write-Host "  Settings is open - have a look at it after the wizard finishes. The wizard continues now."
 Add-Result "Storage Sense guidance" "Done"
 
 # --- Step 6: optimize the system drive (media-aware) ---
@@ -421,8 +421,7 @@ Write-Host "  Opening Task Manager so you can review Startup apps yourself..."
 Show-Command "Start-Process taskmgr"
 try { Start-Process taskmgr -ErrorAction Stop } catch { Write-Host "  Could not open Task Manager - press Ctrl+Shift+Esc to open it by hand." -ForegroundColor Yellow }
 Write-Host "  In Task Manager: Startup apps, sort by Startup impact, right-click > Disable."
-Write-Host "  Press Enter when you are done (or right away to finish)."
-Read-Host | Out-Null
+Write-Host "  Task Manager is open - review it after the wizard finishes."
 Add-Result "Startup list" "Done"
 
 # --- Summary ---
@@ -444,7 +443,7 @@ foreach ($r in $Script:Results) {
 Write-Host ""
 Write-Host "What happened:"
 Write-Host "  - A restore point was made (or today's existing one was used)."
-Write-Host "  - Your answers: Windows Update failing = $wuFailing ; Internet broken = $netBroken"
+Write-Host "  - Internet check: $(if ($pingOk) { 'reachable' } else { 'not reachable (noted only)' })"
 Write-Host "  - No restart is needed for Apprentice."
 Write-Host "  - Wizard (v0.2.0) and Archmage (v0.3.0) are coming next."
 Write-Host ""

@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.3 — 2026-11-15
+
+Prompt redesign: questions are just-in-time now, not upfront.
+
+- The two start questions (is Windows Update failing? is the internet broken?)
+  are gone — they were recorded but never acted on. The ping check is now a
+  silent background check; if it fails, it is only noted in the log.
+- The only questions left in a run: the mode picker at the start, the temp
+  cleanup confirm (right before deleting, after showing counts and sizes),
+  and the power-plan choice (right before applying, plus a confirm for the
+  risky High Performance switch).
+- The "press Enter when you are done" pauses in the Storage Sense and startup
+  steps are gone — Settings and Task Manager open and the wizard continues;
+  review them after the run. The single pause before closing stays.
+- Step logic, safety rules, and the H1–H4 fixes are unchanged.
+
 ## v0.1.2 — 2026-11-15
 
 Terminal redesign: new black / white / red terminal look.

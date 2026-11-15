@@ -15,8 +15,8 @@ arrow-key mode menu, and a progress bar on every step.
    [Releases page](https://github.com/ILIV007/win-opt/releases) and unzip it.
 2. Double-click `Start-WinOpt.bat` (or right-click it and choose
    **Run as administrator**).
-3. Pick a mode and answer the questions. Each step shows its command before
-   it runs.
+3. Pick a mode. The wizard asks only when it needs a decision (temp
+   cleanup, power plan) — each step shows its command before it runs.
 
 Requirements: Windows 10 or Windows 11, PowerShell 5.1, administrator rights.
 
@@ -31,11 +31,10 @@ Requirements: Windows 10 or Windows 11, PowerShell 5.1, administrator rights.
 Times are estimates for a healthy modern SSD PC. The wizard shows a progress
 step, never a countdown.
 
-## What Apprentice (v0.1.0) does
+## What Apprentice (v0.1.3) does
 
-1. Asks two quick questions (is Windows Update failing? is the internet
-   broken?) and runs a simple ping check. The answers are recorded for the
-   later modes — nothing is changed here.
+1. Checks the internet quietly in the background (no questions) and notes
+   the result in the log. Nothing is changed here.
 2. Creates a restore point first. If none can be created, it stops — no
    repair or cleanup runs without a safety net. Exception: if a restore point
    from today already exists (only one per day is allowed), it uses that one.

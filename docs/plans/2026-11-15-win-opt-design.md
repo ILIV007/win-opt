@@ -72,7 +72,7 @@ The user opens it, picks a mode based on how much time they have, watches what h
 3. cleanmgr: dropped from auto-run — no registry exception. Apprentice uses Storage Sense "Run now" + temp cleanup (confirm first, see Goals). cleanmgr GUI is an optional manual step only, where the wizard shows exactly what to tick.
 4. Startup: list only + open Task Manager/Settings for the user to review; no disable code in v1.0.
 5. Wizard SFC unfixable → stop, report, suggest Archmage; do not escalate to RestoreHealth in-place.
-6. Gated branches: wizard asks 2 quick questions at the start (is Windows Update failing? is the internet broken?) + a simple ping check; drivers = open the Optional updates page only, no auto-install.
+6. Gated branches: wizard asks 2 quick questions at the start (is Windows Update failing? is the internet broken?) + a simple ping check; drivers = open the Optional updates page only, no auto-install. (v0.1.3: the two upfront questions are removed from Apprentice — the ping runs silently; Wizard/Archmage will ask their gated-branch questions just-in-time, right before the related step, not at the start.)
 7. Keep it simple, don't overcomplicate (Iliya). Temp cleanup must ask the user first (Iliya).
 
 ## Modes (Nova's call, from the research)
@@ -143,6 +143,15 @@ Black / white / red terminal look with square corners, numbered sections, and a 
 - Arrow-key mode menu (Up/Down, Enter, Esc/Q), with a number-input fallback in hosts without console keys (ISE).
 - Summary table with fixed-width `[  OK  ]` / `[ FAIL ]` / `[ SKIP ]` tags.
 - Palette: default body text (light-theme readable, H4), red accents, green success, yellow warnings. No grey / white / cyan anywhere.
+
+## Prompt rule (v0.1.3)
+
+Just-in-time, minimal, organized (Iliya, 2026-11-15 — runtime questions are annoying).
+
+- No upfront Q&A phase. The wizard asks only when a decision is needed, right before the related command.
+- The only questions in Apprentice: the mode picker at the start, the temp cleanup confirm (after the scan shows counts/sizes, right before deleting), the power-plan choice (right before applying, with an extra confirm only for the risky High Performance switch).
+- Everything else runs without asking: the internet check runs silently and is only noted in the log; Settings and Task Manager open and the wizard continues without waiting for the user to finish in them.
+- One pause at the very end before closing. Step logic, safety rules, and the H1–H4 fixes are unchanged.
 
 ## What's left to the builder
 
