@@ -2,8 +2,7 @@
 
 ## v0.1.2 — 2026-11-15
 
-Terminal redesign, inspired by SenPaiScanner's black / white / red terminal
-look (design language only — the banner art and all code here are original).
+Terminal redesign: new black / white / red terminal look.
 
 - Block ASCII "WIN-OPT" banner (original letter art) with a red tagline, plus
   a version/mode line.

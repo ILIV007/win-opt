@@ -136,7 +136,7 @@ Each phase ships only when its mode is verified live on a real Windows PC; CI is
 
 ## Terminal style (v0.1.2)
 
-Inspired by SenPaiScanner's terminal UI (black / white / red, square corners, numbered sections, JetBrains Mono-style clean look) — design language only; the banner art and all code are original win-opt work, nothing copied.
+Black / white / red terminal look with square corners, numbered sections, and a clean mono style. The banner art and all code are original win-opt work.
 
 - Block ASCII "WIN-OPT" banner: "WIN-" in the console default colour, "OPT" in red, tagline "WINDOWS OPTIMIZER WIZARD" in red.
 - Numbered sections "01 / 08 - Title" with an ASCII progress bar `[####----]` + percent on every step.
