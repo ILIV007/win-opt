@@ -217,3 +217,16 @@ Just-in-time, minimal, organized (Iliya, 2026-11-15 — runtime questions are an
 - How SFC/DISM exit codes and partial output are parsed into pass / repaired / needs-retry / failed.
 - How the "restart now / later" consent flow works across the three modes.
 - Test matrix details and who runs each Windows test (Iliya's PC).
+
+## v0.3.1 patch (2026-11-15, from Iliya's first live Windows test)
+
+- Restore point asks first (Yellow `Read-YesNo` right before the step,
+  default is an explicit Y/N answer); No stops the run like a failed
+  restore point — no repair or cleanup without a safety net.
+- Ctrl+C safe exit: a script-level `trap` for
+  `PipelineStoppedException` prints a short message (restore point, if
+  made, still stands; log path) and pauses before closing.
+- Live progress, one line: `Out-LiveProgress` collapses DISM / SFC /
+  chkdsk percent lines into a single in-place line (carriage return,
+  no newline); all other output and the result parsing are unchanged.
+  It sits between the native command and `Tee-Object` at all 9 sites.

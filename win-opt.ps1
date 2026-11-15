@@ -1,4 +1,4 @@
-# win-opt.ps1 - Windows Optimizer Wizard, v0.3.0 (Apprentice + Wizard + Archmage)
+# win-opt.ps1 - Windows Optimizer Wizard, v0.3.1 (Apprentice + Wizard + Archmage)
 # Windows 10 and Windows 11. PowerShell 5.1 only. Run as administrator.
 # What it does: Apprentice (light tune-up) + Wizard (monthly pass: drive
 # health, DISM health check, SFC, chkdsk scan, Defender check, Windows
@@ -10,7 +10,7 @@
 # What it never does: no registry edits, no cleanmgr auto-run, no network
 # reset, no driver/app updates, no disabling of anything.
 
-$Script:Version = "0.3.0"
+$Script:Version = "0.3.1"
 $Script:Results = @()
 $Script:LogFile = $null
 $Script:StepNo = 0
@@ -31,6 +31,23 @@ function Write-Log {
         $stamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         Add-Content -Path $Script:LogFile -Value "[$stamp] $Message" -ErrorAction Stop
     } catch { }
+}
+
+# --- Ctrl+C safe exit (v0.3.1): a trap for the stop signal ---
+# Ctrl+C in the console raises PipelineStoppedException. Without a trap
+# the script just dies silently mid-step. The trap prints a short
+# message, notes that the restore point (if made) still stands, and
+# pauses before closing - the per-line log already holds everything
+# that finished. Repairs themselves (DISM/SFC) are re-runnable.
+trap [System.Management.Automation.PipelineStoppedException] {
+    Write-Host ""
+    Write-Host "  Stopped by you (Ctrl+C)." -ForegroundColor Yellow
+    Write-Host "  The restore point (if made) still stands - use it to undo changes." -ForegroundColor Yellow
+    Write-Log "Stopped by user (Ctrl+C)."
+    if ($logFile) { Write-Host "  Full log: $logFile" }
+    Write-Host "Press Enter to close."
+    Read-Host | Out-Null
+    break
 }
 
 # --- System drive (H2): resolved once, never assumed to be C: ---
@@ -112,6 +129,41 @@ function Write-Notice {
     # never pops up without warning. Magenta is for these lines only.
     param([string]$Message)
     Write-Host ">> $Message" -ForegroundColor Magenta
+}
+
+function Out-LiveProgress {
+    # Collapse progress-percent lines into ONE live line (v0.3.1).
+    # DISM / SFC / chkdsk print one line per percent when piped, which
+    # floods the screen with hundreds of lines. A line carrying a percent
+    # is rewritten in place on the same console line instead (carriage
+    # return, no newline) and swallowed, so it never reaches Tee-Object
+    # or the log. Any other line ends the live line and passes through
+    # unchanged, so the result text the steps parse is untouched.
+    begin { $Script:LiveLen = 0 }
+    process {
+        $raw = "$_"
+        $parts = $raw -split "`r"
+        $line = $parts[$parts.Count - 1]
+        if (-not $line) { $line = $parts[0] }
+        $pct = -1
+        if ($line -match '(\d+)(?:\.\d+)?\s*%') { $pct = [int]$Matches[1] }
+        elseif ($line -match '(\d+)\s+percent') { $pct = [int]$Matches[1] }
+        if ($pct -ge 0) {
+            $text = $line.Trim()
+            if ($text.Length -gt 76) { $text = $text.Substring(0, 76) }
+            $cur = $text.Length + 2
+            $pad = ""
+            if ($cur -lt $Script:LiveLen) { $pad = " " * ($Script:LiveLen - $cur) }
+            Write-Host ("`r  " + $text + $pad) -NoNewline
+            $Script:LiveLen = $cur
+            return
+        }
+        if ($Script:LiveLen -gt 0) { Write-Host ""; $Script:LiveLen = 0 }
+        $_
+    }
+    end {
+        if ($Script:LiveLen -gt 0) { Write-Host ""; $Script:LiveLen = 0 }
+    }
 }
 
 function Read-NumberMode {
@@ -310,6 +362,16 @@ if ($pingOk) {
 
 # --- Step: restore point (safety net - abort if it cannot be made) ---
 Step-Next -Title "Restore point" -Info "A snapshot so changes can be undone. NOT a backup - your files are not protected."
+if (-not (Read-YesNo "Create a restore point first?")) {
+    Write-Host ""
+    Write-Host "  You skipped the restore point - stopping." -ForegroundColor Yellow
+    Write-Host "  No repair or cleanup without a safety net." -ForegroundColor Red
+    Add-Result "Restore point" "Skipped - aborted by user"
+    Write-Log "Restore point skipped by user - aborted."
+    Write-Host "Press Enter to close."
+    Read-Host | Out-Null
+    exit 1
+}
 Show-Command "Enable-ComputerRestore -Drive `"$sysDrivePath`""
 try {
     Enable-ComputerRestore -Drive $sysDrivePath -ErrorAction Stop
@@ -394,7 +456,7 @@ if ($mode -ge 2) {
     # --- Step: DISM health check (ladder: CheckHealth -> ScanHealth -> RestoreHealth) ---
     Step-Next -Title "DISM health check" -Info "Read-only first: CheckHealth (seconds), ScanHealth only if flagged. Repair runs only if a check finds corruption."
     Show-Command "DISM /Online /Cleanup-Image /CheckHealth"
-    dism.exe /Online /Cleanup-Image /CheckHealth 2>&1 | Tee-Object -Variable dismCheck
+    dism.exe /Online /Cleanup-Image /CheckHealth 2>&1 | Out-LiveProgress | Tee-Object -Variable dismCheck
     $dismTxt = ($dismCheck -join "`n")
     $dismFlagged = $false
     if ($dismTxt -match "No component store corruption detected") {
@@ -412,7 +474,7 @@ if ($mode -ge 2) {
     if ($dismFlagged) {
         Show-Command "DISM /Online /Cleanup-Image /ScanHealth"
         Write-Host "  This takes several minutes - do not close the window."
-        dism.exe /Online /Cleanup-Image /ScanHealth 2>&1 | Tee-Object -Variable dismScan
+        dism.exe /Online /Cleanup-Image /ScanHealth 2>&1 | Out-LiveProgress | Tee-Object -Variable dismScan
         $scanTxt = ($dismScan -join "`n")
         if ($scanTxt -match "No component store corruption detected") {
             $dismFlagged = $false
@@ -424,7 +486,7 @@ if ($mode -ge 2) {
             } else {
                 Show-Command "DISM /Online /Cleanup-Image /RestoreHealth"
                 Write-Host "  Repairing - this takes 10-30 min. Do not close the window."
-                dism.exe /Online /Cleanup-Image /RestoreHealth 2>&1 | Tee-Object -Variable dismFix
+                dism.exe /Online /Cleanup-Image /RestoreHealth 2>&1 | Out-LiveProgress | Tee-Object -Variable dismFix
                 $fixTxt = ($dismFix -join "`n")
                 if (($LASTEXITCODE -eq 0) -and ($fixTxt -match "completed successfully")) {
                     $dismRepaired = $true
@@ -451,7 +513,7 @@ if ($mode -ge 2) {
     # --- Step: system files (SFC ladder: verifyonly -> scannow only if indicated) ---
     Step-Next -Title "System files (SFC)" -Info "Read-only verify first. Repairs only if it finds corruption (DISM already ran first)."
     Show-Command "sfc /verifyonly"
-    sfc /verifyonly 2>&1 | Tee-Object -Variable sfcVerify
+    sfc /verifyonly 2>&1 | Out-LiveProgress | Tee-Object -Variable sfcVerify
     $sfcTxt = ($sfcVerify -join "`n")
     if ($sfcTxt -match "did not find any integrity violations") {
         Write-Host "  System files look clean." -ForegroundColor Green
@@ -459,7 +521,7 @@ if ($mode -ge 2) {
     } elseif ($sfcTxt -match "found integrity violations") {
         Show-Command "sfc /scannow"
         Write-Host "  Repairing - this takes 10-30 min. Do not close the window."
-        sfc /scannow 2>&1 | Tee-Object -Variable sfcFix
+        sfc /scannow 2>&1 | Out-LiveProgress | Tee-Object -Variable sfcFix
         $sfcFixTxt = ($sfcFix -join "`n")
         if ($sfcFixTxt -match "successfully repaired them") {
             $Script:RestartNeeded = $true
@@ -484,7 +546,7 @@ if ($mode -ge 2) {
     # --- Step: disk scan (chkdsk /scan -> /spotfix only if flagged) ---
     Step-Next -Title "Disk scan (chkdsk)" -Info "Online scan, read-only. Fixes only the problems it logs."
     Show-Command "chkdsk $chkDrive /scan"
-    chkdsk $chkDrive /scan 2>&1 | Tee-Object -Variable chkScan
+    chkdsk $chkDrive /scan 2>&1 | Out-LiveProgress | Tee-Object -Variable chkScan
     $chkTxt = ($chkScan -join "`n")
     if ($chkTxt -match "found no problems") {
         Write-Host "  File system looks clean." -ForegroundColor Green
@@ -496,7 +558,7 @@ if ($mode -ge 2) {
             Add-Result "Disk scan (chkdsk)" "Done (errors flagged - skipped, drive not Healthy)"
         } else {
             Show-Command "chkdsk $chkDrive /spotfix"
-            chkdsk $chkDrive /spotfix 2>&1 | Tee-Object -Variable chkFix
+            chkdsk $chkDrive /spotfix 2>&1 | Out-LiveProgress | Tee-Object -Variable chkFix
             $chkFixTxt = ($chkFix -join "`n")
             if ($chkFixTxt -match "restart|scheduled") {
                 $Script:RestartNeeded = $true
@@ -595,12 +657,12 @@ if ($mode -eq 3) {
     # --- Step: component store (Analyze -> cleanup only if recommended) ---
     Step-Next -Title "Component store" -Info "Reports WinSxS size. Cleanup runs only if it recommends it."
     Show-Command "DISM /Online /Cleanup-Image /AnalyzeComponentStore"
-    dism.exe /Online /Cleanup-Image /AnalyzeComponentStore 2>&1 | Tee-Object -Variable compStore
+    dism.exe /Online /Cleanup-Image /AnalyzeComponentStore 2>&1 | Out-LiveProgress | Tee-Object -Variable compStore
     $csTxt = ($compStore -join "`n")
     if ($csTxt -match "Component Store Cleanup Recommended\s*:\s*Yes") {
         Write-Host "  Cleanup recommended - running it (5-15 min). Do not close."
         Show-Command "DISM /Online /Cleanup-Image /StartComponentCleanup"
-        dism.exe /Online /Cleanup-Image /StartComponentCleanup 2>&1 | Tee-Object -Variable compClean
+        dism.exe /Online /Cleanup-Image /StartComponentCleanup 2>&1 | Out-LiveProgress | Tee-Object -Variable compClean
         $ccTxt = ($compClean -join "`n")
         if (($LASTEXITCODE -eq 0) -and ($ccTxt -match "completed successfully")) {
             Write-Host "  Component store cleaned." -ForegroundColor Green

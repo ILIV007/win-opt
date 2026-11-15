@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.1 — 2026-11-15
+
+Patch from Iliya's first live Windows test (everything else passed).
+
+- Restore point now asks first: a Yellow "Create a restore point
+  first?" (Y/N) right before the step. Answering No stops the run - no
+  repair or cleanup without a safety net, same as a failed restore point.
+- Ctrl+C safe exit: a trap catches the stop signal, prints a short
+  message (the restore point, if made, still stands; see the log) and
+  pauses before closing, instead of dying silently mid-step.
+- Live progress, one line: DISM / SFC / chkdsk print one line per percent
+  when piped, flooding the screen. Percent lines now rewrite a single
+  live line in place; all other output and the result parsing are
+  unchanged.
+
 ## v0.3.0 — 2026-11-15
 
 Archmage mode (the deep quarterly pass, ~30–60 min, restarts if needed).
