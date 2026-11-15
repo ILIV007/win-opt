@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>win-opt — Windows Optimizer Wizard</title>
+<meta name="description" content="win-opt is a simple terminal wizard that raises your Windows health a bit. Real, safe, built-in Windows commands, step by step.">
+<style>
+  :root { --bg:#0a0a0a; --fg:#f2f2f2; --muted:#9a9a9a; --red:#e5484d; --line:#262626; --card:#141414; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:"Cascadia Code","Consolas","SF Mono",Menlo,monospace; line-height:1.6; }
+  a { color:var(--fg); }
+  .wrap { max-width:760px; margin:0 auto; padding:48px 20px 64px; }
+  .banner { font-size:clamp(28px,7vw,56px); font-weight:700; letter-spacing:2px; line-height:1.05; margin:0; }
+  .banner .opt { color:var(--red); }
+  .tagline { color:var(--red); font-weight:700; letter-spacing:3px; text-transform:uppercase; font-size:13px; margin:10px 0 0; }
+  .lede { color:var(--muted); font-size:17px; margin:24px 0 0; }
+  .lede strong { color:var(--fg); }
+  .downloads { display:flex; flex-wrap:wrap; gap:12px; margin:32px 0 8px; }
+  .btn { display:inline-block; padding:12px 20px; border:2px solid var(--fg); color:var(--fg); text-decoration:none; font-weight:700; }
+  .btn.primary { background:var(--red); border-color:var(--red); color:#fff; }
+  .btn:hover { opacity:.85; }
+  .meta { color:var(--muted); font-size:13px; margin:8px 0 0; }
+  .meta a { color:var(--muted); }
+  h2 { font-size:20px; margin:48px 0 0; padding-top:24px; border-top:1px solid var(--line); }
+  h2 .num { color:var(--red); }
+  ol, ul { padding-left:22px; }
+  li { margin:8px 0; }
+  li::marker { color:var(--red); }
+  table { width:100%; border-collapse:collapse; margin-top:16px; font-size:15px; }
+  th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:400; text-transform:uppercase; font-size:12px; letter-spacing:1px; }
+  .ok { color:#7ee787; }
+  .soon { color:var(--muted); }
+  .term { background:var(--card); border:1px solid var(--line); padding:16px 18px; margin-top:16px; overflow-x:auto; white-space:pre; font-size:14px; }
+  .term .r { color:var(--red); }
+  .term .g { color:#7ee787; }
+  footer { margin-top:56px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1 class="banner">WIN-<span class="opt">OPT</span></h1>
+<p class="tagline">Windows Optimizer Wizard</p>
+<p class="lede">A simple terminal wizard that raises your Windows health a bit.
+For people who never maintain their system: it runs <strong>real, safe, built-in
+Windows commands</strong>, step by step, shows you each command first, and shows
+you its result.</p>
+
+<div class="downloads">
+  <a class="btn primary" href="https://github.com/ILIV007/win-opt/releases/download/v0.1.5/win-opt-v0.1.5.zip">Download v0.1.5 (.zip)</a>
+  <a class="btn" href="https://github.com/ILIV007/win-opt/releases/download/v0.1.5/win-opt.exe">Download win-opt.exe</a>
+</div>
+<p class="meta">Version 0.1.5 &middot; Windows 10 / 11 &middot; PowerShell 5.1 &middot; Administrator rights &middot;
+<a href="https://github.com/ILIV007/win-opt/releases">All releases</a> &middot;
+<a href="https://github.com/ILIV007/win-opt">GitHub repo</a></p>
+
+<h2><span class="num">01</span> / How to use</h2>
+<ol>
+  <li>Download the <strong>.zip</strong> above (script + launcher) or the standalone <strong>.exe</strong>.</li>
+  <li>Unzip, then double-click <code>Start-WinOpt.bat</code> — or right-click it and choose <strong>Run as administrator</strong>. The .exe asks for admin itself.</li>
+  <li>Pick a mode. The wizard asks only when it needs a decision — temp cleanup, power plan — each step shows its command before it runs.</li>
+</ol>
+
+<h2><span class="num">02</span> / Modes</h2>
+<table>
+  <tr><th>Mode</th><th>Time</th><th>Restart</th><th>Status</th></tr>
+  <tr><td><strong>Apprentice</strong></td><td>~5–10 min</td><td>No</td><td class="ok">Available in v0.1.5</td></tr>
+  <tr><td><strong>Wizard</strong></td><td>~15–25 min</td><td>One at the end</td><td class="soon">Coming in v0.2.0</td></tr>
+  <tr><td><strong>Archmage</strong></td><td>~30–60 min</td><td>One at the end</td><td class="soon">Coming in v0.3.0</td></tr>
+</table>
+<p class="meta">Times are estimates for a healthy modern SSD PC.</p>
+
+<h2><span class="num">03</span> / What Apprentice does</h2>
+<ol>
+  <li>Checks the internet quietly in the background (no questions) and notes the result in the log.</li>
+  <li>Creates a <strong>restore point first</strong>. If none can be created, it stops — no repair or cleanup runs without a safety net. (If a restore point from today already exists, it uses that one.) A restore point is <strong>not</strong> a backup.</li>
+  <li>Flushes the DNS cache (<code>ipconfig /flushdns</code>).</li>
+  <li>Cleans old temp files — <strong>only after asking you first</strong> and showing what will be deleted. Only files older than 7 days, only folder contents, locked files skipped.</li>
+  <li>Opens Settings so you can turn on Storage Sense and run it yourself.</li>
+  <li>Optimizes the system drive (<code>Optimize-Volume</code>, media-aware: TRIM on SSDs, defrag on hard drives).</li>
+  <li>Shows your power plans, records your current one, and offers Balanced or High Performance — your choice, with a laptop battery warning.</li>
+  <li>Lists your startup apps and opens Task Manager so you can review them yourself. win-opt never turns anything off.</li>
+</ol>
+<p class="meta">Every run writes a log to <code>%TEMP%\win-opt\</code>.</p>
+
+<h2><span class="num">04</span> / Safety rules</h2>
+<ul>
+  <li>Only safe built-in commands. Anything dangerous gets a warning and needs your explicit yes.</li>
+  <li>No registry edits. No cleanmgr auto-run. No DISM, SFC, or chkdsk in Apprentice. No network reset, no driver or app updates, no disabling of Defender or Windows services.</li>
+  <li>Nothing is deleted blindly: temp cleanup always asks first and shows counts and sizes before deleting.</li>
+</ul>
+
+<h2><span class="num">05</span> / What it looks like</h2>
+<div class="term"><span class="r">#   # ##### #   #        ###  ####  #####</span>
+<span class="r">#   #   #   ##  #       #   # #   #   #</span>
+<span class="r"># # #   #   # # # ##### #   # ####    #</span>
+<span class="r"># # #   #   #  ##       #   # #       #</span>
+<span class="r"> # #  ##### #   #        ###  #       #</span>
+<span class="r">WINDOWS OPTIMIZER WIZARD</span>
+
+<span class="r">01</span> / 08 - Internet check
+[##------------------] 12%
+  Command: Test-Connection -ComputerName 8.8.8.8 -Count 2 -Quiet
+  <span class="g">Internet reachable (ping 8.8.8.8 worked).</span></div>
+
+<footer>
+  win-opt is free and open source (MIT).<br>
+  <a href="https://github.com/ILIV007/win-opt">github.com/ILIV007/win-opt</a>
+</footer>
+
+</div>
+</body>
+</html>

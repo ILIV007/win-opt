@@ -1,5 +1,7 @@
 # win-opt — Windows Optimizer Wizard
 
+🌐 Website: https://iliv007.github.io/win-opt/
+
 A simple terminal wizard that raises your Windows health a bit. For people who
 never maintain their system: it runs real, safe, built-in Windows commands,
 step by step, shows you each command first, and shows you its result.
