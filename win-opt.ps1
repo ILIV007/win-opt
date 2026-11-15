@@ -1,15 +1,16 @@
-# win-opt.ps1 - Windows Optimizer Wizard, v0.2.0 (Apprentice + Wizard)
+# win-opt.ps1 - Windows Optimizer Wizard, v0.3.0 (Apprentice + Wizard + Archmage)
 # Windows 10 and Windows 11. PowerShell 5.1 only. Run as administrator.
 # What it does: Apprentice (light tune-up) + Wizard (monthly pass: drive
 # health, DISM health check, SFC, chkdsk scan, Defender check, Windows
-# Update check, problem devices, Reliability Monitor). Repairs run only
-# if a check flags a problem - nothing is repaired "just in case".
+# Update check, problem devices, Reliability Monitor) + Archmage (deep
+# quarterly pass: component store, drive wear, diagnostics report, driver
+# audit, battery report, gated Full Scan, gated chkdsk /f, gated memory
+# test, system-image guidance). Repairs run only if a check flags a
+# problem - nothing is repaired "just in case".
 # What it never does: no registry edits, no cleanmgr auto-run, no network
-# reset, no driver/app updates, no disabling of anything. Repairs run
-# only if a check flags a problem - never "just in case".
-# Archmage mode is NOT implemented in v0.2.0 (coming in v0.3.0).
+# reset, no driver/app updates, no disabling of anything.
 
-$Script:Version = "0.2.0"
+$Script:Version = "0.3.0"
 $Script:Results = @()
 $Script:LogFile = $null
 $Script:StepNo = 0
@@ -116,12 +117,12 @@ function Write-Notice {
 function Read-NumberMode {
     # Number-input mode picker, used when the host has no console keys
     # (ISE, redirected input). Returns 1 for Apprentice, 2 for Wizard,
-    # or $null to quit. Archmage is not in v0.2.0 yet.
+    # 3 for Archmage, or $null to quit.
     # Question text is Yellow (v0.1.5): the whole prompt, options included.
     Write-Host "Modes:" -ForegroundColor Yellow
     Write-Host "  [1] Apprentice  - light tune-up, ~5-10 min" -ForegroundColor Yellow
     Write-Host "  [2] Wizard      - monthly pass, ~15-25 min, one restart" -ForegroundColor Yellow
-    Write-Host "  [3] Archmage    - coming in v0.3.0" -ForegroundColor Yellow
+    Write-Host "  [3] Archmage    - deep pass, ~30-60 min, restarts if needed" -ForegroundColor Yellow
     Write-Host "  [Q] Quit" -ForegroundColor Yellow
     while ($true) {
         Write-Host "Pick a mode: " -ForegroundColor Yellow -NoNewline
@@ -129,20 +130,14 @@ function Read-NumberMode {
         if ($choice -eq "Q" -or $choice -eq "q") { return $null }
         if ($choice -eq "1") { return 1 }
         if ($choice -eq "2") { return 2 }
-        if ($choice -eq "3") {
-            Write-Host "Archmage is coming in v0.3.0." -ForegroundColor Yellow
-            Write-Host "Press Enter to run Wizard, or close this window." -ForegroundColor Yellow
-            Read-Host | Out-Null
-            return 2
-        }
+        if ($choice -eq "3") { return 3 }
         Write-Host "Pick 1, 2 or 3." -ForegroundColor Yellow
     }
 }
 
 function Read-ModeMenu {
     # Arrow-key mode menu (Up/Down to move, Enter to confirm, Esc or Q to
-    # quit). Apprentice and Wizard are selectable in this version; Archmage
-    # is shown as coming soon and is skipped by the arrow keys.
+    # quit). All three modes are selectable in this version.
     # Falls back to number input when console keys are unavailable.
     # No $Host.Name check here on purpose: the PS2EXE host reports
     # "PSRunspace-Host", not "ConsoleHost", so a host-name gate would kill
@@ -153,11 +148,11 @@ function Read-ModeMenu {
     # code ran Clear-Host + full banner on every keypress, and Clear-Host in
     # PS 5.1 is slow - that was the sluggish menu. If cursor positioning is
     # unavailable, it falls back to the old Clear-Host repaint per keypress.
-    # Returns 1 for Apprentice, 2 for Wizard, or $null to quit.
+    # Returns 1 for Apprentice, 2 for Wizard, 3 for Archmage, or $null to quit.
     try { $null = [Console]::KeyAvailable } catch { return Read-NumberMode }
     $items = @("Apprentice", "Wizard", "Archmage")
-    $enabled = @($true, $true, $false)
-    $details = @("light tune-up, ~5-10 min", "monthly pass, ~15-25 min, one restart", "coming in v0.3.0")
+    $enabled = @($true, $true, $true)
+    $details = @("light tune-up, ~5-10 min", "monthly pass, ~15-25 min, one restart", "deep pass, ~30-60 min, restarts if needed")
     $selected = 0
     try {
         Clear-Host
@@ -281,7 +276,11 @@ if ($null -eq $mode) {
     Write-Log "Quit at the mode picker."
     exit
 }
-if ($mode -eq 2) {
+if ($mode -eq 3) {
+    $Script:ModeName = "Archmage"
+    $Script:ModeLabel = "Archmage  |  ~30-60 min  |  Restarts if needed"
+    $Script:TotalSteps = 25
+} elseif ($mode -eq 2) {
     $Script:ModeName = "Wizard"
     $Script:ModeLabel = "Wizard  |  ~15-25 min  |  One restart at the end"
     $Script:TotalSteps = 16
@@ -590,6 +589,194 @@ if ($mode -ge 2) {
     Add-Result "Reliability Monitor" "Done"
 }
 
+# ================= ARCHMAGE (deep quarterly pass) =================
+if ($mode -eq 3) {
+
+    # --- Step: component store (Analyze -> cleanup only if recommended) ---
+    Step-Next -Title "Component store" -Info "Reports WinSxS size. Cleanup runs only if it recommends it."
+    Show-Command "DISM /Online /Cleanup-Image /AnalyzeComponentStore"
+    dism.exe /Online /Cleanup-Image /AnalyzeComponentStore 2>&1 | Tee-Object -Variable compStore
+    $csTxt = ($compStore -join "`n")
+    if ($csTxt -match "Component Store Cleanup Recommended\s*:\s*Yes") {
+        Write-Host "  Cleanup recommended - running it (5-15 min). Do not close."
+        Show-Command "DISM /Online /Cleanup-Image /StartComponentCleanup"
+        dism.exe /Online /Cleanup-Image /StartComponentCleanup 2>&1 | Tee-Object -Variable compClean
+        $ccTxt = ($compClean -join "`n")
+        if (($LASTEXITCODE -eq 0) -and ($ccTxt -match "completed successfully")) {
+            Write-Host "  Component store cleaned." -ForegroundColor Green
+            Add-Result "Component store" "Done (cleaned)"
+        } else {
+            Write-Host "  Cleanup finished - see the output above." -ForegroundColor Yellow
+            Add-Result "Component store" "Done (cleanup ran - check output)"
+        }
+    } elseif ($csTxt -match "Component Store Cleanup Recommended\s*:\s*No") {
+        Write-Host "  No cleanup needed." -ForegroundColor Green
+        Add-Result "Component store" "Done (no cleanup needed)"
+    } else {
+        Write-Host "  Could not read the result - no cleanup run." -ForegroundColor Yellow
+        Add-Result "Component store" "Done (result unclear - no cleanup run)"
+    }
+
+    # --- Step: drive wear and errors (read-only) ---
+    Step-Next -Title "Drive wear and errors" -Info "Read-only: temperature, wear, uncorrected errors. Empty fields = not reported."
+    Show-Command "Get-PhysicalDisk | Get-StorageReliabilityCounter | Select-Object DeviceId, Temperature, Wear, PowerOnHours, ReadErrorsUncorrected, WriteErrorsUncorrected"
+    try {
+        $rel = @(Get-PhysicalDisk -ErrorAction Stop | Get-StorageReliabilityCounter -ErrorAction Stop |
+            Select-Object DeviceId, Temperature, Wear, PowerOnHours, ReadErrorsUncorrected, WriteErrorsUncorrected)
+        if ($rel.Count -gt 0) {
+            $rel | Format-Table -AutoSize | Out-String | Write-Host
+            $worn = @($rel | Where-Object { ($_.Wear -is [int]) -and ($_.Wear -gt 80) })
+            $errs = @($rel | Where-Object { ($_.ReadErrorsUncorrected -gt 0) -or ($_.WriteErrorsUncorrected -gt 0) })
+            if ($worn.Count -gt 0) { Write-Host "  WARNING: an SSD is over 80% worn - plan a replacement." -ForegroundColor Yellow }
+            if ($errs.Count -gt 0) { Write-Host "  WARNING: uncorrected errors found - back up now." -ForegroundColor Yellow }
+            Add-Result "Drive wear and errors" "Done"
+        } else {
+            Write-Host "  No reliability data reported for these drives."
+            Add-Result "Drive wear and errors" "Done (no data reported)"
+        }
+    } catch {
+        Write-Host "  Could not read reliability counters: $($_.Exception.Message)" -ForegroundColor Yellow
+        Add-Result "Drive wear and errors" "Skipped - no reliability data"
+    }
+
+    # --- Step: system diagnostics report (60-second snapshot) ---
+    Step-Next -Title "System diagnostics report" -Info "60-second snapshot. Read the Warnings first."
+    Write-Notice "System Diagnostics will open now - it collects for about 60 seconds."
+    Show-Command "Start-Process perfmon.exe /report"
+    try { Start-Process perfmon.exe -ArgumentList "/report" -ErrorAction Stop } catch { Write-Host "  Could not open System Diagnostics - run perfmon /report by hand." -ForegroundColor Yellow }
+    Add-Result "System diagnostics report" "Done"
+
+    # --- Step: driver store audit (list only - nothing is deleted) ---
+    Step-Next -Title "Driver store audit" -Info "Lists installed driver packages and problem devices. Audit only - nothing is deleted."
+    Show-Command "pnputil /enum-drivers"
+    $drvCount = -1
+    try {
+        $drvOut = pnputil /enum-drivers 2>&1 | Out-String
+        $drvCount = ([regex]::Matches($drvOut, "Published Name")).Count
+        Write-Host "  $drvCount driver packages in the store."
+    } catch {
+        Write-Host "  Could not list drivers: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    Show-Command "pnputil /enum-devices /problem"
+    $probCount = -1
+    try {
+        $probOut = pnputil /enum-devices /problem 2>&1 | Out-String
+        if ($probOut -match "No problem devices|no devices with problems") {
+            $probCount = 0
+            Write-Host "  No problem devices." -ForegroundColor Green
+        } else {
+            $probCount = ([regex]::Matches($probOut, "Instance ID")).Count
+            Write-Host ($probOut -split "`n" | Select-Object -First 15 | Out-String)
+            Write-Host "  Update a listed device via Windows Update > Optional updates."
+        }
+    } catch {
+        Write-Host "  Could not list problem devices: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    if (($drvCount -ge 0) -and ($probCount -ge 0)) {
+        Add-Result "Driver store audit" "Done ($drvCount packages, $probCount problem device(s))"
+    } elseif ($drvCount -ge 0) {
+        Add-Result "Driver store audit" "Done ($drvCount packages)"
+    } else {
+        Add-Result "Driver store audit" "Failed"
+    }
+
+    # --- Step: battery report (laptops only) ---
+    Step-Next -Title "Battery report" -Info "Laptops only. Compares full-charge capacity with the design capacity."
+    try { $batt = @(Get-CimInstance Win32_Battery -ErrorAction Stop) } catch { $batt = @() }
+    if ($batt.Count -eq 0) {
+        Write-Host "  No battery - desktop PC, skipping."
+        Add-Result "Battery report" "Skipped - no battery"
+    } else {
+        $battPath = Join-Path $env:USERPROFILE "battery-report.html"
+        Show-Command "powercfg /batteryreport /output ""$battPath"""
+        powercfg /batteryreport /output $battPath
+        if (($LASTEXITCODE -eq 0) -and (Test-Path $battPath)) {
+            Write-Host "  Report saved: $battPath" -ForegroundColor Green
+            Write-Host "  Open it to compare full-charge vs design capacity."
+            Add-Result "Battery report" "Done"
+        } else {
+            Write-Host "  Could not write the battery report." -ForegroundColor Yellow
+            Add-Result "Battery report" "Failed"
+        }
+    }
+
+    # --- Step: Defender Full Scan (gated - ask first, 1h+, needs AC power) ---
+    Step-Next -Title "Defender Full Scan" -Info "Optional deep scan. Takes 1h+ - only if you have the time."
+    Write-Host "  A full scan takes 1 hour or more. Plug the laptop in and leave the PC idle." -ForegroundColor Yellow
+    if (Read-YesNo "Run a Defender Full Scan now?") {
+        $mpCmd = Join-Path $env:ProgramFiles "Windows Defender\MpCmdRun.exe"
+        Write-Notice "The full scan will run in its own window - it takes 1h+."
+        Show-Command """$mpCmd"" -Scan -ScanType 2"
+        if (Test-Path $mpCmd) {
+            try {
+                Start-Process $mpCmd -ArgumentList "-Scan -ScanType 2" -ErrorAction Stop
+                Write-Host "  Full scan started - it runs in its own window." -ForegroundColor Green
+                Add-Result "Defender Full Scan" "Done (started - runs in its own window)"
+            } catch {
+                Write-Host "  Could not start the scan: $($_.Exception.Message)" -ForegroundColor Yellow
+                Add-Result "Defender Full Scan" "Failed"
+            }
+        } else {
+            Write-Host "  MpCmdRun not found - run a Full Scan from Windows Security instead." -ForegroundColor Yellow
+            Add-Result "Defender Full Scan" "Skipped - MpCmdRun not found"
+        }
+    } else {
+        Write-Host "  Skipped - no full scan."
+        Add-Result "Defender Full Scan" "Skipped - user said no"
+    }
+
+    # --- Step: disk repair (chkdsk /f - only if the scan flagged errors, ask first) ---
+    Step-Next -Title "Disk repair (chkdsk /f)" -Info "Only if the scan found errors. Needs a restart - it runs before Windows loads."
+    if (-not $Script:ChkdskFlagged) {
+        Write-Host "  The scan found no errors - nothing to repair."
+        Add-Result "Disk repair" "Skipped - scan was clean"
+    } elseif ($Script:DriveBad) {
+        Write-Host "  The drive is not Healthy - back up first, do not repair yet." -ForegroundColor Yellow
+        Add-Result "Disk repair" "Skipped - drive not Healthy"
+    } else {
+        Write-Host "  The scan found errors. Scheduling the fix needs a restart - save your work." -ForegroundColor Yellow
+        if (Read-YesNo "Schedule chkdsk /f at the next restart?") {
+            Show-Command "chkdsk $chkDrive /f"
+            $chkf = "Y" | chkdsk $chkDrive /f 2>&1 | Out-String
+            Write-Host $chkf
+            if ($chkf -match "scheduled|next time the system restarts") {
+                $Script:RestartNeeded = $true
+                Write-Host "  Scheduled - it runs at the next restart." -ForegroundColor Green
+                Add-Result "Disk repair" "Done (scheduled at next restart)"
+            } elseif ($chkf -match "found no problems") {
+                Write-Host "  File system looks clean." -ForegroundColor Green
+                Add-Result "Disk repair" "Done (no problems)"
+            } else {
+                Write-Host "  See the output above - the fix may need a restart." -ForegroundColor Yellow
+                Add-Result "Disk repair" "Done (see output above)"
+            }
+        } else {
+            Write-Host "  Skipped - nothing scheduled."
+            Add-Result "Disk repair" "Skipped - user said no"
+        }
+    }
+
+    # --- Step: memory test (only on symptom - ask first, needs a restart) ---
+    Step-Next -Title "Memory test" -Info "Only if the PC crashes or blue-screens. Needs a restart - save your work."
+    if (Read-YesNo "Had crashes or blue screens lately? Run the memory test?") {
+        Write-Host "  Save your work - the PC restarts to run the test." -ForegroundColor Yellow
+        Write-Notice "Windows Memory Diagnostic will open now - pick 'Restart now and check for problems'."
+        Show-Command "Start-Process mdsched.exe"
+        try { Start-Process mdsched.exe -ErrorAction Stop } catch { Write-Host "  Could not open Memory Diagnostic - run mdsched.exe by hand." -ForegroundColor Yellow }
+        Add-Result "Memory test" "Done (opened - pick 'Restart now' in the window)"
+    } else {
+        Write-Host "  Skipped - no crashes reported."
+        Add-Result "Memory test" "Skipped - no crashes reported"
+    }
+
+    # --- Step: system image backup (guidance only - no command runs) ---
+    Step-Next -Title "System image backup" -Info "Guidance only - no command runs. A restore point is not a file backup."
+    Write-Host "  Control Panel > Backup and Restore (Windows 7) > Create a system image."
+    Write-Host "  Needs an external drive with enough free space. Do it quarterly."
+    Write-Host "  Also check File History is On: Settings > Storage > Backup options."
+    Add-Result "System image backup" "Done (guidance only)"
+}
+
 # --- Step: flush DNS ---
 Step-Next -Title "Flush the DNS cache" -Info "Clears remembered website addresses. Fast and harmless."
 Show-Command "ipconfig /flushdns"
@@ -772,7 +959,7 @@ Write-Host "  - Internet: $(if ($pingOk) { 'reachable' } else { 'not reachable (
 if ($mode -eq 1) {
     Write-Host "  - Deeper modes: Wizard (monthly), Archmage (quarterly)."
 } elseif ($mode -eq 2) {
-    Write-Host "  - Deeper pass: Archmage (quarterly) in v0.3.0."
+    Write-Host "  - Deeper pass: Archmage (quarterly)."
 } else {
     Write-Host "  - Run Wizard monthly, Archmage quarterly."
 }

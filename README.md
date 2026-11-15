@@ -28,7 +28,7 @@ Requirements: Windows 10 or Windows 11, PowerShell 5.1, administrator rights.
 | --- | --- | --- | --- |
 | **Apprentice** | ~5–10 min | No | Available in v0.1.0 |
 | **Wizard** | ~15–25 min | One at the end | Available in v0.2.0 |
-| **Archmage** | ~30–60 min | One at the end | Coming in v0.3.0 |
+| **Archmage** | ~30–60 min | One at the end | Available in v0.3.0 |
 
 Times are estimates for a healthy modern SSD PC. The wizard shows a progress
 step, never a countdown.
@@ -77,6 +77,27 @@ Everything in Apprentice, plus the monthly pass:
 8. Reliability Monitor — opens the crash timeline (`perfmon /rel`).
 
 If a repair happened, the wizard offers a restart at the end.
+
+## What Archmage adds (v0.3.0)
+
+Everything in Wizard, plus the deep quarterly pass:
+
+1. Component store — `DISM /AnalyzeComponentStore`, then
+   `/StartComponentCleanup` only if it recommends it.
+2. Drive wear and errors — `Get-StorageReliabilityCounter` (temperature,
+   wear, uncorrected errors; read-only).
+3. System diagnostics report — `perfmon /report` (60-second snapshot).
+4. Driver store audit — `pnputil /enum-drivers` + `/enum-devices /problem`
+   (audit only, nothing is deleted).
+5. Battery report — `powercfg /batteryreport` on laptops only.
+6. Defender Full Scan — only if you say yes first (takes 1h+, needs AC
+   power); runs in its own window.
+7. Disk repair — `chkdsk /f` scheduled at the next restart, only if the
+   scan flagged errors and only if you say yes first.
+8. Memory test — `mdsched.exe`, only if you report crashes or blue
+   screens (needs a restart, save your work).
+9. System image backup — guidance only, no command runs (a restore point
+   is not a file backup).
 
 ## Safety rules
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.3.0 — 2026-11-15
+
+Archmage mode (the deep quarterly pass, ~30–60 min, restarts if needed).
+
+- Everything in Wizard, plus 9 new steps: component store
+  (`AnalyzeComponentStore`, cleanup only if recommended), drive wear and
+  errors (`Get-StorageReliabilityCounter`, read-only), system diagnostics
+  report (`perfmon /report`, 60 s), driver store audit (`pnputil
+  /enum-drivers` + `/enum-devices /problem`, nothing deleted), battery
+  report (`powercfg /batteryreport`, laptops only), Defender Full Scan
+  (gated — ask first, 1h+, AC power, runs in its own window), `chkdsk /f`
+  (gated — only if the scan flagged errors, ask first, needs a restart),
+  memory test (`mdsched.exe`, only on reported crashes/BSODs, ask first),
+  system-image guidance (no command runs).
+- The .exe now has an icon (`win-opt.ico`, original: black rounded square,
+  red frame, terminal prompt) via `-IconFile` in the build workflow.
+- Step logic, safety rules, the just-in-time prompt rule, Magenta
+  pre-open notices, and the H1–H4 fixes are unchanged. No command from
+  the myths/excluded lists.
+
 ## v0.2.0 — 2026-11-15
 
 Wizard mode (the monthly pass, ~15–25 min, one restart at the end if a
@@ -140,7 +160,4 @@ Apprentice mode, the first usable version.
 
 ## Unreleased
 
-- v0.3.0 — Archmage mode (component store, drive wear, diagnostics
-  report, driver audit, battery report, gated Full Scan, gated chkdsk /f,
-  gated memory test, system-image guidance).
 - v1.0.0 — Polish and full Windows 10 + 11 test matrix.

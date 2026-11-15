@@ -99,7 +99,7 @@ Change from the original plan: gated `RestoreHealth` now lives in Wizard
 Archmage keeps the deeper quarterly items.
 
 ### Archmage — ~30–60 min, one restart at the end (+ scheduled `chkdsk /f` restart if consented)
-Everything in Wizard, plus: `DISM /RestoreHealth` (internet, 15–30 min — this is what pushes Wizard into Archmage) → `StartComponentCleanup` if recommended → `chkdsk C: /f` scheduled at next restart, explicit consent only → Windows Update limited component reset only if updates still fail after troubleshooter + DISM/SFC → full network reset sequence only if network is broken → `winget upgrade` review then `winget upgrade --all` (reviewed list only; downloads can push it over — say so upfront) → driver Optional updates via Windows Update, driver backup first.
+Everything in Wizard, plus: `DISM /AnalyzeComponentStore` → `StartComponentCleanup` only if recommended → `Get-StorageReliabilityCounter` → `perfmon /report` (60 s) → `pnputil /enum-drivers` + `/enum-devices /problem` audit (nothing deleted) → `powercfg /batteryreport` on laptops → Defender Full Scan, gated (ask first, 1h+, AC power, own window) → `chkdsk C: /f` scheduled at next restart, only if `/scan` flagged errors and only with consent → `mdsched.exe`, only on reported crashes/BSODs (ask first, restart, save work) → system-image guidance (no command runs). Implemented in v0.3.0 (deep quarterly pass from research round 2, §5).
 
 Times are estimates for a healthy modern SSD PC, excluding downloads and the `chkdsk /f` restart pass. Show a progress bar, never a countdown; DISM/SFC progress can sit at one % for a long time.
 
@@ -133,7 +133,7 @@ Times are estimates for a healthy modern SSD PC, excluding downloads and the `ch
 - **Phase 0 — Scaffold (v0.0):** create ILIV007/win-opt, README (EN), LICENSE, `docs/plans/` with this design, `.gitignore`, Release process (zip of `win-opt.ps1` + `Start-WinOpt.bat`). No optimizer code yet.
 - **Phase 1 — Apprentice MVP (v0.1.0):** menu + mode picker, admin check + self-elevate prompt, restore-point step, Apprentice steps only, per-step show command + result, summary screen, log file. Test on real Win11.
 - **Phase 2 — Wizard (v0.2.0):** add DISM Check/Scan + gated RestoreHealth + SFC verifyonly/scannow + chkdsk /scan + gated /spotfix + drive health + Defender verification + Windows Update check + problem-device check + perfmon /rel, one restart at end with consent, progress handling for long steps. DONE 2026-11-15.
-- **Phase 3 — Archmage (v0.3.0):** add DISM RestoreHealth, chkdsk /f scheduling with consent, WU limited reset (gated), network reset branch (gated, only if broken), winget review + upgrade (gated), driver Optional updates + backup.
+- **Phase 3 — Archmage (v0.3.0):** add component store (Analyze + gated cleanup), storage reliability, perfmon /report, pnputil audit, battery report (laptops), gated Defender Full Scan, gated chkdsk /f scheduling, gated mdsched, system-image guidance. DONE 2026-11-15. (The original plan's WU limited reset, network reset branch, winget --all, and driver Optional updates were NOT built — research round 2 replaced them with the quarterly pass above; they stay out unless Iliya asks.)
 - **Phase 4 — Polish + Release (v1.0.0):** colours / ASCII header / progress polish, EN UI copy review, error-code parsing for SFC/DISM, full test matrix (Win10 + Win11, SSD + HDD, laptop + desktop), Release with zip + checksums + changelog.
 
 Each phase ships only when its mode is verified live on a real Windows PC; CI is not proof for this project (no Windows runner in this workspace).
@@ -201,6 +201,15 @@ Just-in-time, minimal, organized (Iliya, 2026-11-15 — runtime questions are an
   window pops up without warning. Magenta is for these lines only
   (overrides H4 for them only, like Yellow for questions). No extra pause
   — the prompt rule stands.
+
+## Exe icon (v0.3.0)
+
+- The packaged .exe carries an original icon: `win-opt.ico` in the repo
+  root (black rounded square, red frame, white `>` + red `_` terminal
+  prompt, sizes 16–256). The build workflow passes `-IconFile
+  "win-opt.ico"` to PS2EXE and verifies the icon is embedded
+  (`ExtractAssociatedIcon` in the workflow log). Visual check needs a
+  real Windows PC (Iliya's test).
 
 ## What's left to the builder
 

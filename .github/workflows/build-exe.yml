@@ -1,5 +1,5 @@
 # Build win-opt.exe with PS2EXE (manual only - never on push).
-# The exe embeds win-opt.ps1 (v0.2.0) in a .NET Framework host; it still
+# The exe embeds win-opt.ps1 (v0.3.0) in a .NET Framework host; it still
 # runs through Windows PowerShell 5.1 on the target PC.
 name: Build win-opt.exe
 
@@ -26,10 +26,18 @@ jobs:
         shell: powershell
         run: |
           Import-Module PS2EXE
-          Invoke-PS2EXE -inputFile win-opt.ps1 -outputFile win-opt.exe -x64 -requireAdmin -title "win-opt" -description "Windows Optimizer Wizard" -company "ILIV007" -product "win-opt" -version "0.2.0.0"
+          Invoke-PS2EXE -inputFile win-opt.ps1 -outputFile win-opt.exe -x64 -requireAdmin -title "win-opt" -description "Windows Optimizer Wizard" -company "ILIV007" -product "win-opt" -version "0.3.0.0" -IconFile "win-opt.ico"
           $exe = Get-Item win-opt.exe
           Write-Host "win-opt.exe size: $($exe.Length) bytes"
           (Get-FileHash win-opt.exe -Algorithm SHA256).Hash
+
+      - name: Verify exe icon
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.Drawing
+          $icon = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path win-opt.exe))
+          if (-not $icon) { throw "No icon embedded in win-opt.exe" }
+          Write-Host "Icon present: $($icon.Width)x$($icon.Height)"
 
       - name: Upload win-opt.exe artifact
         uses: actions/upload-artifact@v4
