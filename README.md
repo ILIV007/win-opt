@@ -6,6 +6,9 @@ step by step, shows you each command first, and shows you its result.
 
 No install. No third-party tools. No registry edits.
 
+Terminal: black / white / red look — block ASCII banner, numbered sections,
+arrow-key mode menu, and a progress bar on every step.
+
 ## How to use
 
 1. Download the latest release zip from the

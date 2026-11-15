@@ -1,13 +1,13 @@
-# win-opt.ps1 - Windows Optimizer Wizard, v0.1.1 (Apprentice only)
+# win-opt.ps1 - Windows Optimizer Wizard, v0.1.2 (Apprentice only)
 # Windows 10 and Windows 11. PowerShell 5.1 only. Run as administrator.
 # What it does: asks 2 start questions, creates a restore point, flushes DNS,
 # cleans old temp files (only after you say yes), opens Storage Sense guidance,
 # optimizes the system drive, offers a power-plan change, and lists startup apps.
 # What it never does: no registry edits, no DISM/SFC/chkdsk, no cleanmgr auto-run,
 # no network reset, no driver/app updates, no disabling of anything.
-# Wizard and Archmage modes are NOT implemented in v0.1.1.
+# Wizard and Archmage modes are NOT implemented in v0.1.2.
 
-$Script:Version = "0.1.1"
+$Script:Version = "0.1.2"
 $Script:Results = @()
 
 # --- System drive (H2): resolved once, never assumed to be C: ---
@@ -17,25 +17,125 @@ $sysDriveLetter = $sysDrive.TrimEnd(':')
 $sysDrivePath = $sysDrive + "\"
 $winTemp = Join-Path $env:SystemRoot "Temp"
 
+function Write-Banner {
+    # Original block-letter "WIN-OPT" banner (own letter art, pure ASCII).
+    # "WIN-" prints in the console default colour, "OPT" in red; the tagline
+    # is red too. No white/grey/cyan anywhere, so it stays readable on a
+    # light terminal (H4).
+    $banner = @(
+        "#   # ##### #   #        ###  ####  #####",
+        "#   #   #   ##  #       #   # #   #   #  ",
+        "# # #   #   # # # ##### #   # ####    #  ",
+        "# # #   #   #  ##       #   # #       #  ",
+        " # #  ##### #   #        ###  #       #  "
+    )
+    foreach ($line in $banner) {
+        Write-Host $line.Substring(0, 24) -NoNewline
+        Write-Host $line.Substring(24) -ForegroundColor Red
+    }
+    Write-Host "WINDOWS OPTIMIZER WIZARD" -ForegroundColor Red
+    Write-Host "  win-opt v$Script:Version  |  Apprentice mode  |  ~5-10 minutes  |  No restart needed"
+    Write-Host ""
+}
+
 function Write-Header {
     Clear-Host
-    Write-Host "=================================================="
-    Write-Host "  win-opt  -  Windows Optimizer Wizard  v$Script:Version"
-    Write-Host "  Apprentice mode  |  ~5-10 minutes  |  No restart needed"
-    Write-Host "=================================================="
-    Write-Host ""
+    Write-Banner
+}
+
+function Write-ProgressBar {
+    param([int]$Done, [int]$Total)
+    $width = 20
+    $filled = 0
+    $percent = 0
+    if ($Total -gt 0) {
+        $filled = [math]::Floor($Done / $Total * $width)
+        $percent = [math]::Floor($Done / $Total * 100)
+    }
+    if ($filled -gt $width) { $filled = $width }
+    $bar = "[" + ("#" * $filled) + ("-" * ($width - $filled)) + "] " + $percent + "%"
+    Write-Host $bar
 }
 
 function Write-Step {
     param([int]$Number, [int]$Total, [string]$Title, [string]$Info)
+    $num = "{0:D2}" -f $Number
+    $tot = "{0:D2}" -f $Total
     Write-Host ""
-    Write-Host "--- Step $Number of $Total : $Title ---"
+    Write-Host $num -ForegroundColor Red -NoNewline
+    Write-Host " / $tot - $Title"
+    Write-ProgressBar -Done ($Number - 1) -Total $Total
     if ($Info) { Write-Host $Info }
 }
 
 function Show-Command {
     param([string]$Command)
     Write-Host "  Command: $Command"
+}
+
+function Read-NumberMode {
+    # Number-input mode picker, used when the host has no console keys
+    # (ISE, redirected input). Returns 1 for Apprentice, or $null to quit.
+    Write-Host "Modes:"
+    Write-Host "  [1] Apprentice  - light tune-up, ~5-10 minutes (this version)" -ForegroundColor Green
+    Write-Host "  [2] Wizard      - coming in v0.2.0"
+    Write-Host "  [3] Archmage    - coming in v0.3.0"
+    Write-Host "  [Q] Quit"
+    $choice = Read-Host "Pick a mode"
+    if ($choice -eq "Q" -or $choice -eq "q") { return $null }
+    if ($choice -ne "1") {
+        Write-Host "That mode is not in v$Script:Version yet. Apprentice is the only mode in this version." -ForegroundColor Yellow
+        Write-Host "Press Enter to run Apprentice, or close this window to quit." -ForegroundColor Yellow
+        Read-Host | Out-Null
+    }
+    return 1
+}
+
+function Read-ModeMenu {
+    # Arrow-key mode menu (Up/Down to move, Enter to confirm, Esc or Q to
+    # quit). Only Apprentice is selectable in this version; Wizard and
+    # Archmage are shown as coming soon and are skipped by the arrow keys.
+    # Falls back to number input when console keys are unavailable.
+    # Returns 1 for Apprentice, or $null to quit.
+    if ($Host.Name -ne "ConsoleHost") { return Read-NumberMode }
+    try { $null = [Console]::KeyAvailable } catch { return Read-NumberMode }
+    $items = @("Apprentice", "Wizard", "Archmage")
+    $enabled = @($true, $false, $false)
+    $details = @("light tune-up, ~5-10 minutes (this version)", "coming in v0.2.0", "coming in v0.3.0")
+    $selected = 0
+    try {
+        while ($true) {
+            Clear-Host
+            Write-Banner
+            Write-Host "Modes:  (Up/Down to move, Enter to confirm, Q to quit)"
+            for ($i = 0; $i -lt $items.Count; $i++) {
+                $marker = "   "
+                if ($i -eq $selected) { $marker = " > " }
+                $line = "$marker[$($i + 1)] $($items[$i])  - $($details[$i])"
+                if ($i -eq $selected) { Write-Host $line -ForegroundColor Green }
+                else { Write-Host $line }
+            }
+            $key = [Console]::ReadKey($true)
+            if ($key.Key -eq [ConsoleKey]::DownArrow) {
+                $next = $selected
+                do { $next = ($next + 1) % $items.Count } while ((-not $enabled[$next]) -and ($next -ne $selected))
+                $selected = $next
+            } elseif ($key.Key -eq [ConsoleKey]::UpArrow) {
+                $next = $selected
+                do { $next = ($next - 1 + $items.Count) % $items.Count } while ((-not $enabled[$next]) -and ($next -ne $selected))
+                $selected = $next
+            } elseif ($key.Key -eq [ConsoleKey]::Enter) {
+                return 1
+            } elseif ($key.Key -eq [ConsoleKey]::Escape) {
+                return $null
+            } elseif (($key.KeyChar -eq 'q') -or ($key.KeyChar -eq 'Q')) {
+                return $null
+            }
+        }
+    } catch {
+        return Read-NumberMode
+    }
+    return 1
 }
 
 function Add-Result {
@@ -94,22 +194,12 @@ Write-Host "Apprentice is a light tune-up for PCs that never get maintained."
 Write-Host "It only runs safe built-in commands, and it shows you each one first."
 Write-Host ""
 
-# --- Mode picker: only Apprentice exists in v0.1.1 ---
-Write-Host "Modes:"
-Write-Host "  [1] Apprentice  - light tune-up, ~5-10 minutes (this version)" -ForegroundColor Green
-Write-Host "  [2] Wizard      - coming in v0.2.0"
-Write-Host "  [3] Archmage    - coming in v0.3.0"
-Write-Host "  [Q] Quit"
-$choice = Read-Host "Pick a mode"
-if ($choice -eq "Q" -or $choice -eq "q") {
+# --- Mode picker: only Apprentice exists in v0.1.2 ---
+$mode = Read-ModeMenu
+if ($null -eq $mode) {
     Write-Host "Bye."
     try { Stop-Transcript | Out-Null } catch { }
     exit
-}
-if ($choice -ne "1") {
-    Write-Host "That mode is not in v0.1.1 yet. Apprentice is the only mode in this version." -ForegroundColor Yellow
-    Write-Host "Press Enter to run Apprentice, or close this window to quit." -ForegroundColor Yellow
-    Read-Host | Out-Null
 }
 
 Write-Header
@@ -340,8 +430,18 @@ Write-Host ""
 Write-Host "=================================================="
 Write-Host "  win-opt Apprentice - done"
 Write-Host "=================================================="
+Write-ProgressBar -Done $TotalSteps -Total $TotalSteps
 Write-Host ""
-$Script:Results | Format-Table -AutoSize | Out-String | Write-Host
+foreach ($r in $Script:Results) {
+    $tag = "  OK  "
+    if ($r.Status -match '^Failed') { $tag = " FAIL " }
+    elseif ($r.Status -match '^Skipped') { $tag = " SKIP " }
+    $detail = ($r.Status -replace '^(Done|Failed|Skipped)\s*', '')
+    $line = "  [$tag]  $($r.Step)"
+    if ($detail) { $line += "  $detail" }
+    Write-Host $line
+}
+Write-Host ""
 Write-Host "What happened:"
 Write-Host "  - A restore point was made (or today's existing one was used)."
 Write-Host "  - Your answers: Windows Update failing = $wuFailing ; Internet broken = $netBroken"

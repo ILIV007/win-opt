@@ -134,9 +134,19 @@ Each phase ships only when its mode is verified live on a real Windows PC; CI is
 - Log file: per-run transcript in `%TEMP%\win-opt\` so a failed step can be shown, not just "error".
 - No auto-update / no telemetry in v1.0.
 
+## Terminal style (v0.1.2)
+
+Inspired by SenPaiScanner's terminal UI (black / white / red, square corners, numbered sections, JetBrains Mono-style clean look) — design language only; the banner art and all code are original win-opt work, nothing copied.
+
+- Block ASCII "WIN-OPT" banner: "WIN-" in the console default colour, "OPT" in red, tagline "WINDOWS OPTIMIZER WIZARD" in red.
+- Numbered sections "01 / 08 - Title" with an ASCII progress bar `[####----]` + percent on every step.
+- Arrow-key mode menu (Up/Down, Enter, Esc/Q), with a number-input fallback in hosts without console keys (ISE).
+- Summary table with fixed-width `[  OK  ]` / `[ FAIL ]` / `[ SKIP ]` tags.
+- Palette: default body text (light-theme readable, H4), red accents, green success, yellow warnings. No grey / white / cyan anywhere.
+
 ## What's left to the builder
 
-- Exact colour scheme, ASCII header art, progress-bar implementation, menu navigation keys.
+- Exact colour scheme, ASCII header art, progress-bar implementation, menu navigation keys — settled in v0.1.2 (see Terminal style above).
 - How SFC/DISM exit codes and partial output are parsed into pass / repaired / needs-retry / failed.
 - How the "restart now / later" consent flow works across the three modes.
 - Test matrix details and who runs each Windows test (Iliya's PC).

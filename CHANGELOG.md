@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.1.2 — 2026-11-15
+
+Terminal redesign, inspired by SenPaiScanner's black / white / red terminal
+look (design language only — the banner art and all code here are original).
+
+- Block ASCII "WIN-OPT" banner (original letter art) with a red tagline, plus
+  a version/mode line.
+- Numbered sections: every step header is "01 / 08 - Title" with an ASCII
+  progress bar and percent.
+- Arrow-key mode menu (Up/Down + Enter, Esc/Q to quit) with a number-input
+  fallback when console keys are unavailable.
+- Final summary as a fixed-width table with [  OK  ] / [ FAIL ] / [ SKIP ]
+  tags.
+- Palette unchanged for light themes: default body text, red accents, green
+  success, yellow warnings.
+
 ## v0.1.1 — 2026-11-15
 
 Patch for the four high-severity issues found in the v0.1.0 checkup.
