@@ -1,34 +1,41 @@
-# win-opt.ps1 - Windows Optimizer Wizard, v0.1.0 (Apprentice only)
+# win-opt.ps1 - Windows Optimizer Wizard, v0.1.1 (Apprentice only)
 # Windows 10 and Windows 11. PowerShell 5.1 only. Run as administrator.
 # What it does: asks 2 start questions, creates a restore point, flushes DNS,
 # cleans old temp files (only after you say yes), opens Storage Sense guidance,
-# optimizes the C: drive, offers a power-plan change, and lists startup apps.
+# optimizes the system drive, offers a power-plan change, and lists startup apps.
 # What it never does: no registry edits, no DISM/SFC/chkdsk, no cleanmgr auto-run,
 # no network reset, no driver/app updates, no disabling of anything.
-# Wizard and Archmage modes are NOT implemented in v0.1.0.
+# Wizard and Archmage modes are NOT implemented in v0.1.1.
 
-$Script:Version = "0.1.0"
+$Script:Version = "0.1.1"
 $Script:Results = @()
+
+# --- System drive (H2): resolved once, never assumed to be C: ---
+$sysDrive = $env:SystemDrive
+if (-not $sysDrive) { $sysDrive = "C:" }
+$sysDriveLetter = $sysDrive.TrimEnd(':')
+$sysDrivePath = $sysDrive + "\"
+$winTemp = Join-Path $env:SystemRoot "Temp"
 
 function Write-Header {
     Clear-Host
-    Write-Host "==================================================" -ForegroundColor Cyan
-    Write-Host "  win-opt  -  Windows Optimizer Wizard  v$Script:Version" -ForegroundColor Cyan
-    Write-Host "  Apprentice mode  |  ~5-10 minutes  |  No restart needed" -ForegroundColor Cyan
-    Write-Host "==================================================" -ForegroundColor Cyan
+    Write-Host "=================================================="
+    Write-Host "  win-opt  -  Windows Optimizer Wizard  v$Script:Version"
+    Write-Host "  Apprentice mode  |  ~5-10 minutes  |  No restart needed"
+    Write-Host "=================================================="
     Write-Host ""
 }
 
 function Write-Step {
     param([int]$Number, [int]$Total, [string]$Title, [string]$Info)
     Write-Host ""
-    Write-Host "--- Step $Number of $Total : $Title ---" -ForegroundColor Yellow
-    if ($Info) { Write-Host $Info -ForegroundColor Gray }
+    Write-Host "--- Step $Number of $Total : $Title ---"
+    if ($Info) { Write-Host $Info }
 }
 
 function Show-Command {
     param([string]$Command)
-    Write-Host "  Command: $Command" -ForegroundColor DarkCyan
+    Write-Host "  Command: $Command"
 }
 
 function Add-Result {
@@ -55,6 +62,14 @@ if (-not $isAdmin) {
     exit
 }
 
+# --- PowerShell version guard (H1): the restore cmdlets exist only in 5.1 ---
+# Placed after the admin relaunch, so a non-admin PowerShell 7 user is still
+# relaunched into powershell.exe (5.1) first.
+if ($PSVersionTable.PSVersion.Major -ne 5) {
+    Write-Host "win-opt needs Windows PowerShell 5.1. Please run Start-WinOpt.bat instead - it uses powershell.exe (5.1), not PowerShell 7." -ForegroundColor Yellow
+    exit 1
+}
+
 # --- Per-run log in %TEMP%\win-opt\ ---
 $logDir = Join-Path $env:TEMP "win-opt"
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
@@ -67,32 +82,32 @@ Write-Header
 $os = Get-CimInstance Win32_OperatingSystem
 $build = [System.Environment]::OSVersion.Version.Build
 if ($build -ge 22000) { $winLabel = "Windows 11" } else { $winLabel = "Windows 10" }
-Write-Host "Windows: $($os.Caption)  ($winLabel, build $build)" -ForegroundColor Gray
+Write-Host "Windows: $($os.Caption)  ($winLabel, build $build)"
 if ($winLabel -eq "Windows 10") {
-    Write-Host "Note: Windows 10 support ended 14 Oct 2025. Update-related steps in later" -ForegroundColor Gray
-    Write-Host "versions cannot restore routine Windows 10 updates. Everything in Apprentice" -ForegroundColor Gray
-    Write-Host "runs the same on Windows 10 and Windows 11." -ForegroundColor Gray
+    Write-Host "Note: Windows 10 support ended 14 Oct 2025. Update-related steps in later"
+    Write-Host "versions cannot restore routine Windows 10 updates. Everything in Apprentice"
+    Write-Host "runs the same on Windows 10 and Windows 11."
 }
-Write-Host "Log file: $logFile" -ForegroundColor Gray
+Write-Host "Log file: $logFile"
 Write-Host ""
-Write-Host "Apprentice is a light tune-up for PCs that never get maintained." -ForegroundColor White
-Write-Host "It only runs safe built-in commands, and it shows you each one first." -ForegroundColor White
+Write-Host "Apprentice is a light tune-up for PCs that never get maintained."
+Write-Host "It only runs safe built-in commands, and it shows you each one first."
 Write-Host ""
 
-# --- Mode picker: only Apprentice exists in v0.1.0 ---
-Write-Host "Modes:" -ForegroundColor White
+# --- Mode picker: only Apprentice exists in v0.1.1 ---
+Write-Host "Modes:"
 Write-Host "  [1] Apprentice  - light tune-up, ~5-10 minutes (this version)" -ForegroundColor Green
-Write-Host "  [2] Wizard      - coming in v0.2.0" -ForegroundColor DarkGray
-Write-Host "  [3] Archmage    - coming in v0.3.0" -ForegroundColor DarkGray
-Write-Host "  [Q] Quit" -ForegroundColor White
+Write-Host "  [2] Wizard      - coming in v0.2.0"
+Write-Host "  [3] Archmage    - coming in v0.3.0"
+Write-Host "  [Q] Quit"
 $choice = Read-Host "Pick a mode"
 if ($choice -eq "Q" -or $choice -eq "q") {
-    Write-Host "Bye." -ForegroundColor Gray
+    Write-Host "Bye."
     try { Stop-Transcript | Out-Null } catch { }
     exit
 }
 if ($choice -ne "1") {
-    Write-Host "That mode is not in v0.1.0 yet. Apprentice is the only mode in this version." -ForegroundColor Yellow
+    Write-Host "That mode is not in v0.1.1 yet. Apprentice is the only mode in this version." -ForegroundColor Yellow
     Write-Host "Press Enter to run Apprentice, or close this window to quit." -ForegroundColor Yellow
     Read-Host | Out-Null
 }
@@ -104,7 +119,7 @@ $TotalSteps = 8
 Write-Step -Number 1 -Total $TotalSteps -Title "Two quick questions" -Info "Your answers are saved in the log for the later Wizard and Archmage modes. Nothing is changed here."
 $wuFailing = Read-YesNo "Is Windows Update failing on this PC (updates stuck or erroring)?"
 $netBroken = Read-YesNo "Is your internet broken on this PC (websites will not load at all)?"
-Write-Host "  Recorded: Windows Update failing = $wuFailing ; Internet broken = $netBroken" -ForegroundColor Gray
+Write-Host "  Recorded: Windows Update failing = $wuFailing ; Internet broken = $netBroken"
 Show-Command "Test-Connection -ComputerName 8.8.8.8 -Count 2 -Quiet"
 try {
     $pingOk = Test-Connection -ComputerName 8.8.8.8 -Count 2 -Quiet -ErrorAction Stop
@@ -117,10 +132,10 @@ Add-Result "Start questions + ping check" "Done"
 
 # --- Step 2: restore point (safety net - abort if it cannot be made) ---
 Write-Step -Number 2 -Total $TotalSteps -Title "Restore point (safety net)" -Info "Before anything changes, Windows takes a snapshot so system changes can be undone. A restore point is NOT a backup - your personal files are not protected by it."
-Show-Command 'Enable-ComputerRestore -Drive "C:\"'
+Show-Command "Enable-ComputerRestore -Drive `"$sysDrivePath`""
 try {
-    Enable-ComputerRestore -Drive "C:\" -ErrorAction Stop
-    Write-Host "  Result: System Protection is on for C:." -ForegroundColor Green
+    Enable-ComputerRestore -Drive $sysDrivePath -ErrorAction Stop
+    Write-Host "  Result: System Protection is on for $sysDrive." -ForegroundColor Green
 } catch {
     Write-Host "  Note: could not confirm System Protection: $($_.Exception.Message)" -ForegroundColor Yellow
 }
@@ -133,9 +148,14 @@ try {
     Write-Host "  Result: restore point created." -ForegroundColor Green
 } catch {
     Write-Host "  Warning: creating a new restore point failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    Write-Host "  Checking whether a restore point from today already exists (only one per day is allowed)..." -ForegroundColor Gray
+    Write-Host "  Checking whether a restore point from today already exists (only one per day is allowed)..."
     Show-Command "Get-ComputerRestorePoint"
-    $todayPoint = Get-ComputerRestorePoint -ErrorAction SilentlyContinue | Where-Object { $_.CreationTime.Date -eq (Get-Date).Date } | Select-Object -First 1
+    $todayPoint = $null
+    try {
+        $todayPoint = Get-ComputerRestorePoint -ErrorAction SilentlyContinue | Where-Object { $_.CreationTime.Date -eq (Get-Date).Date } | Select-Object -First 1
+    } catch {
+        $todayPoint = $null
+    }
     if ($todayPoint) {
         Write-Host "  Result: a restore point from today already exists ($($todayPoint.Description)). Continuing with it." -ForegroundColor Green
         $restoreOk = $true
@@ -146,17 +166,18 @@ if (-not $restoreOk) {
     Write-Host "==================================================" -ForegroundColor Red
     Write-Host "  STOPPED: no restore point could be created." -ForegroundColor Red
     Write-Host "  win-opt will not run any repair or cleanup without" -ForegroundColor Red
-    Write-Host "  a safety net. Turn on System Protection for C: in" -ForegroundColor Red
+    Write-Host "  a safety net. Turn on System Protection for $sysDrive in" -ForegroundColor Red
     Write-Host "  System Properties, then run win-opt again." -ForegroundColor Red
     Write-Host "==================================================" -ForegroundColor Red
     Add-Result "Restore point" "FAILED - aborted"
     try { Stop-Transcript | Out-Null } catch { }
-    Write-Host "Press Enter to close." -ForegroundColor Gray
+    Write-Host "Press Enter to close."
     Read-Host | Out-Null
     exit 1
 }
-$points = Get-ComputerRestorePoint -ErrorAction SilentlyContinue
-Write-Host "  Restore points on this PC: $(@($points).Count)" -ForegroundColor Gray
+$points = @()
+try { $points = Get-ComputerRestorePoint -ErrorAction SilentlyContinue } catch { $points = @() }
+Write-Host "  Restore points on this PC: $(@($points).Count)"
 Add-Result "Restore point" "Done"
 
 # --- Step 3: flush DNS ---
@@ -164,7 +185,7 @@ Write-Step -Number 3 -Total $TotalSteps -Title "Flush the DNS cache" -Info "Clea
 Show-Command "ipconfig /flushdns"
 try {
     $dnsOut = ipconfig /flushdns 2>&1 | Out-String
-    Write-Host $dnsOut -ForegroundColor Gray
+    Write-Host $dnsOut
     Write-Host "  Result: DNS cache flushed." -ForegroundColor Green
     Add-Result "Flush DNS" "Done"
 } catch {
@@ -175,7 +196,7 @@ try {
 # --- Step 4: temp cleanup - ALWAYS asks first ---
 Write-Step -Number 4 -Total $TotalSteps -Title "Clean old temp files (asks first)" -Info "Only files older than 7 days are touched, only the contents of the temp folders (never the folders themselves), and locked files are skipped. This frees space - it does not speed up a healthy PC by itself."
 $cutoff = (Get-Date).AddDays(-7)
-$tempPaths = @($env:TEMP, "C:\Windows\Temp")
+$tempPaths = @($env:TEMP, $winTemp)
 $tempSummary = @()
 foreach ($tp in $tempPaths) {
     Show-Command "Get-ChildItem $tp -Recurse -Force | Where-Object { LastWriteTime -lt (7 days ago) }"
@@ -185,7 +206,7 @@ foreach ($tp in $tempPaths) {
     $bytes = 0
     foreach ($f in $oldFiles) { $bytes += $f.Length }
     $mb = [math]::Round($bytes / 1MB, 1)
-    Write-Host "  $tp : $count files older than 7 days, about $mb MB" -ForegroundColor White
+    Write-Host "  $tp : $count files older than 7 days, about $mb MB"
     $tempSummary += [PSCustomObject]@{ Path = $tp; Count = $count; MB = $mb }
 }
 $totalTempCount = ($tempSummary | Measure-Object -Property Count -Sum).Sum
@@ -204,65 +225,92 @@ if ($totalTempCount -eq 0) {
     Write-Host "  Result: deleted $deleted of $totalTempCount old temp files (locked files were skipped)." -ForegroundColor Green
     Add-Result "Temp cleanup" "Done ($deleted files)"
 } else {
-    Write-Host "  Result: skipped - you said no. Nothing was deleted." -ForegroundColor Gray
+    Write-Host "  Result: skipped - you said no. Nothing was deleted."
     Add-Result "Temp cleanup" "Skipped - user said no"
 }
 
 # --- Step 5: Storage Sense guidance (opens Settings, no registry edits) ---
 Write-Step -Number 5 -Total $TotalSteps -Title "Storage Sense" -Info "Windows has its own automatic cleaner. win-opt does not change its settings - it opens Settings so you can turn it on and press 'Run now' yourself."
 Show-Command "Start-Process ms-settings:storage"
-Write-Host "  Opening Settings > System > Storage..." -ForegroundColor Gray
-Write-Host "  In that page: turn on Storage Sense, then use 'Configure Storage Sense" -ForegroundColor White
-Write-Host "  or run it now'. Do NOT turn on automatic Downloads cleanup unless you" -ForegroundColor White
-Write-Host "  want Windows to delete old downloads by itself." -ForegroundColor White
+Write-Host "  Opening Settings > System > Storage..."
+Write-Host "  In that page: turn on Storage Sense, then use 'Configure Storage Sense"
+Write-Host "  or run it now'. Do NOT turn on automatic Downloads cleanup unless you"
+Write-Host "  want Windows to delete old downloads by itself."
 try { Start-Process ms-settings:storage -ErrorAction Stop } catch { Write-Host "  Could not open Settings automatically - open it by hand: Settings > System > Storage." -ForegroundColor Yellow }
-Write-Host "  Press Enter when you are done in Settings (or right away to skip this step)." -ForegroundColor Gray
+Write-Host "  Press Enter when you are done in Settings (or right away to skip this step)."
 Read-Host | Out-Null
 Add-Result "Storage Sense guidance" "Done"
 
-# --- Step 6: optimize the C: drive (media-aware) ---
-Write-Step -Number 6 -Total $TotalSteps -Title "Optimize drive C:" -Info "Media-aware: on an SSD this sends TRIM hints (fast), on a hard drive it defragments (can take a while). Nothing is forced onto the wrong drive type."
-Show-Command "Optimize-Volume -DriveLetter C"
+# --- Step 6: optimize the system drive (media-aware) ---
+Write-Step -Number 6 -Total $TotalSteps -Title "Optimize drive $sysDrive" -Info "Media-aware: on an SSD this sends TRIM hints (fast), on a hard drive it defragments (can take a while). Nothing is forced onto the wrong drive type."
+Show-Command "Optimize-Volume -DriveLetter $sysDriveLetter"
 try {
-    Optimize-Volume -DriveLetter C -ErrorAction Stop | Out-String | Write-Host -ForegroundColor Gray
-    Write-Host "  Result: drive C: optimized." -ForegroundColor Green
-    Add-Result "Optimize drive C:" "Done"
+    Optimize-Volume -DriveLetter $sysDriveLetter -ErrorAction Stop | Out-String | Write-Host
+    Write-Host "  Result: drive $sysDrive optimized." -ForegroundColor Green
+    Add-Result "Optimize drive $sysDrive" "Done"
 } catch {
     Write-Host "  Result: optimize failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    Add-Result "Optimize drive C:" "Failed"
+    Add-Result "Optimize drive $sysDrive" "Failed"
 }
 
 # --- Step 7: power plan (record original, user chooses) ---
 Write-Step -Number 7 -Total $TotalSteps -Title "Power plan" -Info "A faster plan uses more power and makes more heat and fan noise. On a laptop it shortens battery life. Your current plan is recorded so you can go back."
+$balancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
+$highPerfGuid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
 Show-Command "powercfg /list"
-powercfg /list
+$planList = powercfg /list | Out-String
+Write-Host $planList
+$hasHighPerf = $planList -match $highPerfGuid
 Show-Command "powercfg /getactivescheme"
 $activeScheme = powercfg /getactivescheme
-Write-Host "  Current plan: $activeScheme" -ForegroundColor White
-Write-Host "  Recorded as your original plan - you can switch back any time." -ForegroundColor Gray
+Write-Host "  Current plan: $activeScheme"
+Write-Host "  Recorded as your original plan - you can switch back any time."
 Write-Host ""
-Write-Host "  [1] Keep my current plan" -ForegroundColor White
-Write-Host "  [2] Balanced (best for most PCs and laptops)" -ForegroundColor White
-Write-Host "  [3] High Performance (desktop recommended - more power, heat, fan noise)" -ForegroundColor White
+Write-Host "  [1] Keep my current plan"
+Write-Host "  [2] Balanced (best for most PCs and laptops)"
+if ($hasHighPerf) {
+    Write-Host "  [3] High Performance (desktop recommended - more power, heat, fan noise)"
+} else {
+    Write-Host "  [3] High Performance - not available on this PC"
+}
 $planChoice = Read-Host "Pick a power plan (1/2/3)"
 if ($planChoice -eq "2") {
-    Show-Command "powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e"
-    powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e
-    Write-Host "  Result: switched to Balanced." -ForegroundColor Green
-    Add-Result "Power plan" "Done (Balanced)"
-} elseif ($planChoice -eq "3") {
-    Write-Host "  Warning: High Performance uses more power and shortens laptop battery life." -ForegroundColor Yellow
-    if (Read-YesNo "Switch to High Performance anyway?") {
-        Show-Command "powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
-        powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-        Write-Host "  Result: switched to High Performance." -ForegroundColor Green
-        Add-Result "Power plan" "Done (High Performance)"
+    Show-Command "powercfg /setactive $balancedGuid"
+    powercfg /setactive $balancedGuid
+    $setOk = ($LASTEXITCODE -eq 0)
+    $activeAfter = powercfg /getactivescheme
+    if ($setOk -and ($activeAfter -match $balancedGuid)) {
+        Write-Host "  Result: switched to Balanced." -ForegroundColor Green
+        Add-Result "Power plan" "Done (Balanced)"
     } else {
-        Write-Host "  Result: kept your current plan." -ForegroundColor Gray
-        Add-Result "Power plan" "Skipped - kept current"
+        Write-Host "  Result: could not switch to Balanced. Your plan was not changed." -ForegroundColor Yellow
+        Add-Result "Power plan" "Failed"
+    }
+} elseif ($planChoice -eq "3") {
+    if (-not $hasHighPerf) {
+        Write-Host "  Result: High Performance is not available on this PC. Keeping your current plan." -ForegroundColor Yellow
+        Add-Result "Power plan" "Skipped - High Performance not available"
+    } else {
+        Write-Host "  Warning: High Performance uses more power and shortens laptop battery life." -ForegroundColor Yellow
+        if (Read-YesNo "Switch to High Performance anyway?") {
+            Show-Command "powercfg /setactive $highPerfGuid"
+            powercfg /setactive $highPerfGuid
+            $setOk = ($LASTEXITCODE -eq 0)
+            $activeAfter = powercfg /getactivescheme
+            if ($setOk -and ($activeAfter -match $highPerfGuid)) {
+                Write-Host "  Result: switched to High Performance." -ForegroundColor Green
+                Add-Result "Power plan" "Done (High Performance)"
+            } else {
+                Write-Host "  Result: could not switch to High Performance. Your plan was not changed." -ForegroundColor Yellow
+                Add-Result "Power plan" "Failed"
+            }
+        } else {
+            Write-Host "  Result: kept your current plan."
+            Add-Result "Power plan" "Skipped - kept current"
+        }
     }
 } else {
-    Write-Host "  Result: kept your current plan." -ForegroundColor Gray
+    Write-Host "  Result: kept your current plan."
     Add-Result "Power plan" "Skipped - kept current"
 }
 
@@ -272,35 +320,35 @@ Show-Command "Get-CimInstance Win32_StartupCommand | Select-Object Name, Command
 try {
     $startup = Get-CimInstance Win32_StartupCommand -ErrorAction Stop |
         Select-Object Name, Command, Location, User
-    if ($startup) { $startup | Format-Table -AutoSize | Out-String | Write-Host -ForegroundColor Gray }
-    else { Write-Host "  No startup programs found." -ForegroundColor Gray }
+    if ($startup) { $startup | Format-Table -AutoSize | Out-String | Write-Host }
+    else { Write-Host "  No startup programs found." }
 } catch {
     Write-Host "  Could not list startup programs: $($_.Exception.Message)" -ForegroundColor Yellow
 }
-Write-Host "  Keep enabled: your antivirus and cloud storage you need at sign-in." -ForegroundColor White
-Write-Host "  Do not switch off something you do not recognise - look it up first." -ForegroundColor White
-Write-Host "  Opening Task Manager so you can review Startup apps yourself..." -ForegroundColor Gray
+Write-Host "  Keep enabled: your antivirus and cloud storage you need at sign-in."
+Write-Host "  Do not switch off something you do not recognise - look it up first."
+Write-Host "  Opening Task Manager so you can review Startup apps yourself..."
 Show-Command "Start-Process taskmgr"
 try { Start-Process taskmgr -ErrorAction Stop } catch { Write-Host "  Could not open Task Manager - press Ctrl+Shift+Esc to open it by hand." -ForegroundColor Yellow }
-Write-Host "  In Task Manager: Startup apps, sort by Startup impact, right-click > Disable." -ForegroundColor White
-Write-Host "  Press Enter when you are done (or right away to finish)." -ForegroundColor Gray
+Write-Host "  In Task Manager: Startup apps, sort by Startup impact, right-click > Disable."
+Write-Host "  Press Enter when you are done (or right away to finish)."
 Read-Host | Out-Null
 Add-Result "Startup list" "Done"
 
 # --- Summary ---
 Write-Host ""
-Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "  win-opt Apprentice - done" -ForegroundColor Cyan
-Write-Host "==================================================" -ForegroundColor Cyan
+Write-Host "=================================================="
+Write-Host "  win-opt Apprentice - done"
+Write-Host "=================================================="
 Write-Host ""
-$Script:Results | Format-Table -AutoSize | Out-String | Write-Host -ForegroundColor White
-Write-Host "What happened:" -ForegroundColor White
-Write-Host "  - A restore point was made (or today's existing one was used)." -ForegroundColor Gray
-Write-Host "  - Your answers: Windows Update failing = $wuFailing ; Internet broken = $netBroken" -ForegroundColor Gray
-Write-Host "  - No restart is needed for Apprentice." -ForegroundColor Gray
-Write-Host "  - Wizard (v0.2.0) and Archmage (v0.3.0) are coming next." -ForegroundColor Gray
+$Script:Results | Format-Table -AutoSize | Out-String | Write-Host
+Write-Host "What happened:"
+Write-Host "  - A restore point was made (or today's existing one was used)."
+Write-Host "  - Your answers: Windows Update failing = $wuFailing ; Internet broken = $netBroken"
+Write-Host "  - No restart is needed for Apprentice."
+Write-Host "  - Wizard (v0.2.0) and Archmage (v0.3.0) are coming next."
 Write-Host ""
-Write-Host "Full log: $logFile" -ForegroundColor Gray
+Write-Host "Full log: $logFile"
 try { Stop-Transcript | Out-Null } catch { }
-Write-Host "Press Enter to close." -ForegroundColor Gray
+Write-Host "Press Enter to close."
 Read-Host | Out-Null

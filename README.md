@@ -43,7 +43,7 @@ step, never a countdown.
    will be deleted. Only files older than 7 days, only the contents of the
    temp folders (never the folders themselves), locked files are skipped.
 5. Opens Settings so you can turn on Storage Sense and run it yourself.
-6. Optimizes drive C: (`Optimize-Volume -DriveLetter C`, media-aware: TRIM
+6. Optimizes the system drive (`Optimize-Volume`, media-aware: TRIM
    on SSDs, defrag on hard drives).
 7. Shows your power plans, records your current one, and offers Balanced or
    High Performance — your choice, with a laptop battery warning.
