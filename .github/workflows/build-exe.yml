@@ -1,0 +1,40 @@
+# Build win-opt.exe with PS2EXE (manual only - never on push).
+# The exe embeds win-opt.ps1 (v0.1.3) in a .NET Framework host; it still
+# runs through Windows PowerShell 5.1 on the target PC.
+name: Build win-opt.exe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PS2EXE 1.0.18
+        shell: powershell
+        run: |
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Install-PackageProvider -Name NuGet -Force -Scope CurrentUser -ErrorAction SilentlyContinue
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name PS2EXE -RequiredVersion 1.0.18 -Force -Scope CurrentUser -AllowClobber
+          Get-Module PS2EXE -ListAvailable | Select-Object Name, Version
+
+      - name: Compile win-opt.exe
+        shell: powershell
+        run: |
+          Import-Module PS2EXE
+          Invoke-PS2EXE -inputFile win-opt.ps1 -outputFile win-opt.exe -x64 -requireAdmin -title "win-opt" -description "Windows Optimizer Wizard" -company "ILIV007" -product "win-opt" -version "0.1.3.0"
+          $exe = Get-Item win-opt.exe
+          Write-Host "win-opt.exe size: $($exe.Length) bytes"
+          (Get-FileHash win-opt.exe -Algorithm SHA256).Hash
+
+      - name: Upload win-opt.exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-opt-exe
+          path: win-opt.exe
+          if-no-files-found: error
+          retention-days: 7
