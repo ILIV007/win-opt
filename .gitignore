@@ -1,0 +1,6 @@
+# win-opt .gitignore
+*.log
+win-opt-*.log
+.vscode/
+Thumbs.db
+Desktop.ini
