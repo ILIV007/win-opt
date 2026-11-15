@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.2.0 — 2026-11-15
+
+Wizard mode (the monthly pass, ~15–25 min, one restart at the end if a
+repair happened).
+
+- Everything in Apprentice, plus 8 new steps: drive health
+  (`Get-PhysicalDisk` + `Win32_DiskDrive`, read-only — warns and skips disk
+  repairs if a drive is not Healthy), DISM health check (CheckHealth, then
+  ScanHealth only if flagged, then RestoreHealth only if corruption is
+  found), SFC (`/verifyonly`, then `/scannow` only if it finds corruption —
+  DISM always first), `chkdsk /scan` (then `/spotfix` only if it logs
+  problems), Defender check (real-time protection, definitions, quick scan
+  in the last 7 days — runs one if it missed; no full scan), Windows Update
+  check (opens Settings), problem-device list (act only on listed devices),
+  Reliability Monitor (`perfmon /rel`).
+- Repairs run only if a check flags a problem — nothing is repaired "just
+  in case". DISM/SFC/chkdsk output shows live while it runs (Tee-Object)
+  and is parsed for the result; unreadable output (e.g. non-English
+  Windows) falls back to the deeper check instead of guessing.
+- Pre-open notices in Magenta (new colour, for these lines only): before
+  Settings, Windows Update, Reliability Monitor, or Task Manager opens, the
+  wizard prints a `>> ... will open now` line so no window pops up without
+  warning. No extra pause.
+- Step numbering is automatic now (`Step-Next` counter), so the step count
+  stays right in every mode (Apprentice 8, Wizard 16).
+- Restart offer at the end of Wizard only if a repair needs it (DISM/SFC
+  repaired files, spot-fix needs a restart). Apprentice never asks.
+- SmartScreen note in the README: the unsigned .exe may trigger "Windows
+  protected your PC" — click "More info", then "Run anyway".
+- Step logic, safety rules, the just-in-time prompt rule, and the H1–H4
+  fixes are unchanged. No command from the myths/excluded lists.
+
 ## v0.1.5 — 2026-11-15
 
 Faster terminal updates, and questions print in yellow.
@@ -108,7 +140,7 @@ Apprentice mode, the first usable version.
 
 ## Unreleased
 
-- v0.2.0 — Wizard mode (DISM Check/Scan, SFC, chkdsk /scan).
-- v0.3.0 — Archmage mode (DISM RestoreHealth, chkdsk /f, gated network and
-  Windows Update branches, reviewed winget upgrade).
+- v0.3.0 — Archmage mode (component store, drive wear, diagnostics
+  report, driver audit, battery report, gated Full Scan, gated chkdsk /f,
+  gated memory test, system-image guidance).
 - v1.0.0 — Polish and full Windows 10 + 11 test matrix.

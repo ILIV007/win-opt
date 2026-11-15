@@ -83,7 +83,20 @@ Names are wizard tiers — Apprentice / Wizard / Archmage.
 Restore point (0a–0c) → `ipconfig /flushdns` → temp cleanup (confirm first, >7-day age filter, skip locked) + Storage Sense "Run now" → `Optimize-Volume -DriveLetter C` (media-aware: SSD ReTrim, HDD analyse/defrag only if advised) → `powercfg /list` + record original plan, offer Balanced/High Performance (user choice) → startup list (`Get-CimInstance Win32_StartupCommand`) + open Task Manager/Settings for the user to review. No DISM/SFC here. cleanmgr is NOT auto-run (see builder-check answers).
 
 ### Wizard — ~15–25 min, one restart at the end
-Everything in Apprentice, plus: `DISM /CheckHealth` → `/ScanHealth` → `sfc /scannow` (~10–15 min combined on SSD) → `chkdsk C: /scan` → `DISM /AnalyzeComponentStore`, `StartComponentCleanup` only if recommended (if it runs, Wizard can slip to ~30 min — tell the user) → Windows Update troubleshooter only if updates are failing + open Windows Update.
+Everything in Apprentice, plus: `DISM /CheckHealth` → `/ScanHealth` (only if
+flagged) → `/RestoreHealth` (only if corruption is found, needs internet) →
+`sfc /verifyonly` → `sfc /scannow` (only if indicated; DISM first, per
+Microsoft Support) → `chkdsk C: /scan` → `/spotfix` (only if it logs
+problems) → drive health (`Get-PhysicalDisk` + `Get-CimInstance
+Win32_DiskDrive`, never WMIC) → Defender verification (real-time protection
+On, definitions current, quick scan in the last 7 days — run one if missed,
+never force a full scan) → Windows Update check (opens Settings) →
+problem-device check (`Get-PnpDevice`, act only on listed devices) →
+`perfmon /rel` guidance. Repairs run only if a check flags a problem.
+Implemented in v0.2.0 (monthly pass from research round 2, §5).
+Change from the original plan: gated `RestoreHealth` now lives in Wizard
+(round-2 §5 — repair only if a check flags it), not only in Archmage;
+Archmage keeps the deeper quarterly items.
 
 ### Archmage — ~30–60 min, one restart at the end (+ scheduled `chkdsk /f` restart if consented)
 Everything in Wizard, plus: `DISM /RestoreHealth` (internet, 15–30 min — this is what pushes Wizard into Archmage) → `StartComponentCleanup` if recommended → `chkdsk C: /f` scheduled at next restart, explicit consent only → Windows Update limited component reset only if updates still fail after troubleshooter + DISM/SFC → full network reset sequence only if network is broken → `winget upgrade` review then `winget upgrade --all` (reviewed list only; downloads can push it over — say so upfront) → driver Optional updates via Windows Update, driver backup first.
@@ -119,7 +132,7 @@ Times are estimates for a healthy modern SSD PC, excluding downloads and the `ch
 
 - **Phase 0 — Scaffold (v0.0):** create ILIV007/win-opt, README (EN), LICENSE, `docs/plans/` with this design, `.gitignore`, Release process (zip of `win-opt.ps1` + `Start-WinOpt.bat`). No optimizer code yet.
 - **Phase 1 — Apprentice MVP (v0.1.0):** menu + mode picker, admin check + self-elevate prompt, restore-point step, Apprentice steps only, per-step show command + result, summary screen, log file. Test on real Win11.
-- **Phase 2 — Wizard (v0.2.0):** add DISM Check/Scan + SFC + chkdsk /scan + AnalyzeComponentStore / StartComponentCleanup (gated), one restart at end with consent, progress handling for long steps.
+- **Phase 2 — Wizard (v0.2.0):** add DISM Check/Scan + gated RestoreHealth + SFC verifyonly/scannow + chkdsk /scan + gated /spotfix + drive health + Defender verification + Windows Update check + problem-device check + perfmon /rel, one restart at end with consent, progress handling for long steps. DONE 2026-11-15.
 - **Phase 3 — Archmage (v0.3.0):** add DISM RestoreHealth, chkdsk /f scheduling with consent, WU limited reset (gated), network reset branch (gated, only if broken), winget review + upgrade (gated), driver Optional updates + backup.
 - **Phase 4 — Polish + Release (v1.0.0):** colours / ASCII header / progress polish, EN UI copy review, error-code parsing for SFC/DISM, full test matrix (Win10 + Win11, SSD + HDD, laptop + desktop), Release with zip + checksums + changelog.
 
@@ -179,6 +192,15 @@ Just-in-time, minimal, organized (Iliya, 2026-11-15 — runtime questions are an
   only): mode-picker prompt + options, temp confirm, power-plan choice +
   options, High Performance confirm. Body text stays default, status stays
   green/yellow/red.
+
+## Pre-open notices (v0.2.0)
+
+- Before any external window opens (Settings, Windows Update, Reliability
+  Monitor, Task Manager, and any Wizard/Archmage window after them), the
+  wizard prints a `>> ... will open now` notice line in Magenta, so no
+  window pops up without warning. Magenta is for these lines only
+  (overrides H4 for them only, like Yellow for questions). No extra pause
+  — the prompt rule stands.
 
 ## What's left to the builder
 

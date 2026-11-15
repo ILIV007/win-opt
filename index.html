@@ -49,13 +49,14 @@ Windows commands</strong>, step by step, shows you each command first, and shows
 you its result.</p>
 
 <div class="downloads">
-  <a class="btn primary" href="https://github.com/ILIV007/win-opt/releases/download/v0.1.5/win-opt-v0.1.5.zip">Download script (.zip)</a>
-  <a class="btn" href="https://github.com/ILIV007/win-opt/releases/download/v0.1.5/win-opt-exe-v0.1.5.zip">Download exe (.zip)</a>
+  <a class="btn primary" href="https://github.com/ILIV007/win-opt/releases/download/v0.2.0/win-opt-v0.2.0.zip">Download script (.zip)</a>
+  <a class="btn" href="https://github.com/ILIV007/win-opt/releases/download/v0.2.0/win-opt-exe-v0.2.0.zip">Download exe (.zip)</a>
 </div>
-<p class="meta">Version 0.1.5 &middot; Windows 10 / 11 &middot; PowerShell 5.1 &middot; Administrator rights &middot;
-<a href="https://github.com/ILIV007/win-opt/releases/download/v0.1.5/win-opt.exe">Standalone win-opt.exe</a> &middot;
+<p class="meta">Version 0.2.0 &middot; Windows 10 / 11 &middot; PowerShell 5.1 &middot; Administrator rights &middot;
+<a href="https://github.com/ILIV007/win-opt/releases/download/v0.2.0/win-opt.exe">Standalone win-opt.exe</a> &middot;
 <a href="https://github.com/ILIV007/win-opt/releases">All releases</a> &middot;
 <a href="https://github.com/ILIV007/win-opt">GitHub repo</a></p>
+<p class="meta">SmartScreen may warn about the unsigned exe — click "More info", then "Run anyway". Check the release SHA-256 first.</p>
 
 <h2><span class="num">01</span> / How to use</h2>
 <ol>
@@ -68,7 +69,7 @@ you its result.</p>
 <table>
   <tr><th>Mode</th><th>Time</th><th>Restart</th><th>Status</th></tr>
   <tr><td><strong>Apprentice</strong></td><td>~5–10 min</td><td>No</td><td class="ok">Available in v0.1.5</td></tr>
-  <tr><td><strong>Wizard</strong></td><td>~15–25 min</td><td>One at the end</td><td class="soon">Coming in v0.2.0</td></tr>
+  <tr><td><strong>Wizard</strong></td><td>~15–25 min</td><td>One at the end</td><td class="ok">Available in v0.2.0</td></tr>
   <tr><td><strong>Archmage</strong></td><td>~30–60 min</td><td>One at the end</td><td class="soon">Coming in v0.3.0</td></tr>
 </table>
 <p class="meta">Times are estimates for a healthy modern SSD PC.</p>
@@ -86,14 +87,27 @@ you its result.</p>
 </ol>
 <p class="meta">Every run writes a log to <code>%TEMP%\win-opt\</code>.</p>
 
-<h2><span class="num">04</span> / Safety rules</h2>
+<h2><span class="num">04</span> / What Wizard adds</h2>
+<ol>
+  <li>Drive health — <code>Get-PhysicalDisk</code> + <code>Win32_DiskDrive</code>, read-only. If a drive is not Healthy, it warns to back up first and skips disk repairs.</li>
+  <li>DISM health check — <code>CheckHealth</code>, then <code>ScanHealth</code> only if flagged, then <code>RestoreHealth</code> only if corruption is found.</li>
+  <li>System files — <code>sfc /verifyonly</code>, then <code>sfc /scannow</code> only if it finds corruption.</li>
+  <li>Disk scan — <code>chkdsk /scan</code>, then <code>/spotfix</code> only if it logs problems.</li>
+  <li>Defender check — real-time protection, definitions, a quick scan in the last 7 days. No full scan here.</li>
+  <li>Windows Update check — opens Windows Update; install offered updates, check Optional updates for drivers.</li>
+  <li>Problem devices — lists devices Windows flags as not OK; only a listed device gets attention.</li>
+  <li>Reliability Monitor — opens the crash timeline (<code>perfmon /rel</code>).</li>
+</ol>
+<p class="meta">Repairs run only if a check flags a problem. If a repair happened, the wizard offers a restart at the end.</p>
+
+<h2><span class="num">05</span> / Safety rules</h2>
 <ul>
   <li>Only safe built-in commands. Anything dangerous gets a warning and needs your explicit yes.</li>
   <li>No registry edits. No cleanmgr auto-run. No DISM, SFC, or chkdsk in Apprentice. No network reset, no driver or app updates, no disabling of Defender or Windows services.</li>
   <li>Nothing is deleted blindly: temp cleanup always asks first and shows counts and sizes before deleting.</li>
 </ul>
 
-<h2><span class="num">05</span> / What it looks like</h2>
+<h2><span class="num">06</span> / What it looks like</h2>
 <div class="term"><span class="r">#   # ##### #   #        ###  ####  #####</span>
 <span class="r">#   #   #   ##  #       #   # #   #   #</span>
 <span class="r"># # #   #   # # # ##### #   # ####    #</span>

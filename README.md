@@ -27,13 +27,13 @@ Requirements: Windows 10 or Windows 11, PowerShell 5.1, administrator rights.
 | Mode | Time | Restart | Status |
 | --- | --- | --- | --- |
 | **Apprentice** | ~5–10 min | No | Available in v0.1.0 |
-| **Wizard** | ~15–25 min | One at the end | Coming in v0.2.0 |
+| **Wizard** | ~15–25 min | One at the end | Available in v0.2.0 |
 | **Archmage** | ~30–60 min | One at the end | Coming in v0.3.0 |
 
 Times are estimates for a healthy modern SSD PC. The wizard shows a progress
 step, never a countdown.
 
-## What Apprentice (v0.1.5) does
+## What Apprentice does
 
 1. Checks the internet quietly in the background (no questions) and notes
    the result in the log. Nothing is changed here.
@@ -56,15 +56,45 @@ step, never a countdown.
 
 Every run writes a log to `%TEMP%\win-opt\`.
 
+## What Wizard adds (v0.2.0)
+
+Everything in Apprentice, plus the monthly pass:
+
+1. Drive health — `Get-PhysicalDisk` + `Get-CimInstance Win32_DiskDrive`
+   (read-only). If a drive is not Healthy, it warns to back up first and
+   skips disk repairs.
+2. DISM health check — `CheckHealth`, then `ScanHealth` only if flagged,
+   then `RestoreHealth` only if corruption is found (needs internet).
+3. System files — `sfc /verifyonly`, then `sfc /scannow` only if it finds
+   corruption (DISM runs first, per Microsoft Support).
+4. Disk scan — `chkdsk /scan`, then `/spotfix` only if it logs problems.
+5. Defender check — real-time protection On, definitions current, a quick
+   scan ran in the last 7 days (runs one if it missed). No full scan here.
+6. Windows Update check — opens Windows Update; install offered updates,
+   check Optional updates for drivers.
+7. Problem devices — lists devices Windows flags as not OK; only a listed
+   device gets attention, never bulk driver updates.
+8. Reliability Monitor — opens the crash timeline (`perfmon /rel`).
+
+If a repair happened, the wizard offers a restart at the end.
+
 ## Safety rules
 
 - Only safe built-in commands. Anything dangerous gets a warning and needs
   your explicit yes.
 - No registry edits. No cleanmgr auto-run. No DISM, SFC, or chkdsk in
-  Apprentice. No network reset, no driver or app updates, no disabling of
-  Defender or Windows services.
+  Apprentice. Wizard runs DISM/SFC/chkdsk checks and repairs only if a
+  check flags a problem. No network reset, no driver or app updates, no
+  disabling of Defender or Windows services.
 - Nothing is deleted blindly: temp cleanup always asks first and shows
   counts and sizes before deleting.
+
+## SmartScreen warning
+
+The .exe is not code-signed (no certificate), so Windows SmartScreen may
+show "Windows protected your PC". Click "More info", then "Run anyway".
+The code is open source (see `win-opt.ps1`) and every release lists its
+SHA-256 — check the file hash before running.
 
 ## Files
 
