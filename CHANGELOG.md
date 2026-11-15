@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.1.4 — 2026-11-15
+
+PS2EXE compatibility: the script now works the same inside a packaged .exe.
+
+- Arrow-key mode menu: the `$Host.Name` gate is gone. The menu tries
+  `[Console]::ReadKey` and falls back to number input only if console keys
+  really fail — so it works in the PS2EXE exe (host name "PSRunspace-Host")
+  exactly like in a normal PowerShell console.
+- Logging is manual now: `Start-Transcript`/`Stop-Transcript` are gone (the
+  PS2EXE console host does not implement them, so no log file was ever
+  written). A small `Write-Log` appends timestamped lines to
+  `%TEMP%\win-opt\win-opt-YYYYMMDD-HHmmss.log`; every step result and the
+  final summary are logged, and the "Log file:" line points at the real file.
+- All user-visible texts shortened — step headers, explanations, prompts,
+  summary lines. Same meaning, fewer words.
+- `Start-WinOpt.bat` sets the console title (`WIN-OPT`) and a fixed size
+  (`mode con cols=100 lines=35`) before launching PowerShell.
+- Step logic, safety rules, the just-in-time prompt rule, and the H1–H4
+  fixes are unchanged.
+
 ## v0.1.3 — 2026-11-15
 
 Prompt redesign: questions are just-in-time now, not upfront.

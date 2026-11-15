@@ -153,6 +153,20 @@ Just-in-time, minimal, organized (Iliya, 2026-11-15 — runtime questions are an
 - Everything else runs without asking: the internet check runs silently and is only noted in the log; Settings and Task Manager open and the wizard continues without waiting for the user to finish in them.
 - One pause at the very end before closing. Step logic, safety rules, and the H1–H4 fixes are unchanged.
 
+## PS2EXE compatibility (v0.1.4)
+
+- No `$Host.Name` checks anywhere: the packaged .exe runs under a different
+  host name, so capability is probed by trying (ReadKey) with a fallback,
+  never by checking the host name.
+- No transcript logging: `Write-Log` appends timestamped lines to a file in
+  `%TEMP%\win-opt\`; every `Add-Result` is logged, so the summary and the
+  log always agree.
+- Terse text (v0.1.4): every user-visible message is as short as possible —
+  step headers, one-line explanations, prompts, summary lines. Cut words,
+  keep the meaning.
+- `Start-WinOpt.bat` sets `title WIN-OPT` and `mode con cols=100 lines=35`
+  before launching PowerShell.
+
 ## What's left to the builder
 
 - Exact colour scheme, ASCII header art, progress-bar implementation, menu navigation keys — settled in v0.1.2 (see Terminal style above).

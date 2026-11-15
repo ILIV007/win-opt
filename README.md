@@ -31,7 +31,7 @@ Requirements: Windows 10 or Windows 11, PowerShell 5.1, administrator rights.
 Times are estimates for a healthy modern SSD PC. The wizard shows a progress
 step, never a countdown.
 
-## What Apprentice (v0.1.3) does
+## What Apprentice (v0.1.4) does
 
 1. Checks the internet quietly in the background (no questions) and notes
    the result in the log. Nothing is changed here.
