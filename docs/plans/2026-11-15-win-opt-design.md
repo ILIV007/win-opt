@@ -167,6 +167,19 @@ Just-in-time, minimal, organized (Iliya, 2026-11-15 — runtime questions are an
 - `Start-WinOpt.bat` sets `title WIN-OPT` and `mode con cols=100 lines=35`
   before launching PowerShell.
 
+## Speed + yellow questions (v0.1.5)
+
+- Fast updates: the arrow-key menu repaints in place (cursor back to the
+  first item row, only the item lines rewritten). Clear-Host on every
+  keypress was the bottleneck — it is slow in PS 5.1. Fallback: the old
+  Clear-Host repaint if cursor positioning fails.
+- Temp cleanup scans once: a short "Scanning ..." line per folder, file
+  lists cached and reused for deletion (no second recursive scan).
+- Questions are Yellow (Iliya's order, overrides H4 for question text
+  only): mode-picker prompt + options, temp confirm, power-plan choice +
+  options, High Performance confirm. Body text stays default, status stays
+  green/yellow/red.
+
 ## What's left to the builder
 
 - Exact colour scheme, ASCII header art, progress-bar implementation, menu navigation keys — settled in v0.1.2 (see Terminal style above).

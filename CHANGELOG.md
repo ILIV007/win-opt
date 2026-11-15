@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.1.5 — 2026-11-15
+
+Faster terminal updates, and questions print in yellow.
+
+- Terminal updates: the arrow-key menu no longer repaints the whole screen
+  (Clear-Host + full banner) on every keypress — Clear-Host in PS 5.1 is
+  slow, and that was the lag. The banner prints once and each keypress only
+  rewrites the menu lines in place via cursor positioning, with the old
+  Clear-Host repaint as fallback if cursor positioning is unavailable.
+- Temp cleanup no longer scans the temp folders twice: the scan prints a
+  short "Scanning ..." line per folder and the file lists are reused for
+  deletion, so the delete starts at once instead of after a second silent
+  scan. (There is no Write-Progress and no Start-Sleep anywhere in the
+  script — the menu repaint was the actual bottleneck.)
+- Questions print in yellow now (Iliya's order): the mode-picker prompt and
+  its options, the temp cleanup confirm, the power-plan choice and its
+  options, and the High Performance safety confirm. Body text stays the
+  console default colour and status stays green/yellow/red. This overrides
+  the light-theme H4 rule for question text only.
+- Step logic, safety rules, the just-in-time prompt rule, and the H1–H4
+  fixes are unchanged.
+
 ## v0.1.4 — 2026-11-15
 
 PS2EXE compatibility: the script now works the same inside a packaged .exe.

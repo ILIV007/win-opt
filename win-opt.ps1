@@ -1,13 +1,13 @@
-# win-opt.ps1 - Windows Optimizer Wizard, v0.1.4 (Apprentice only)
+# win-opt.ps1 - Windows Optimizer Wizard, v0.1.5 (Apprentice only)
 # Windows 10 and Windows 11. PowerShell 5.1 only. Run as administrator.
 # What it does: checks the internet quietly, creates a restore point, flushes DNS,
 # cleans old temp files (only after you say yes), opens Storage Sense guidance,
 # optimizes the system drive, offers a power-plan change, and lists startup apps.
 # What it never does: no registry edits, no DISM/SFC/chkdsk, no cleanmgr auto-run,
 # no network reset, no driver/app updates, no disabling of anything.
-# Wizard and Archmage modes are NOT implemented in v0.1.4.
+# Wizard and Archmage modes are NOT implemented in v0.1.5.
 
-$Script:Version = "0.1.4"
+$Script:Version = "0.1.5"
 $Script:Results = @()
 $Script:LogFile = $null
 
@@ -90,12 +90,14 @@ function Show-Command {
 function Read-NumberMode {
     # Number-input mode picker, used when the host has no console keys
     # (ISE, redirected input). Returns 1 for Apprentice, or $null to quit.
-    Write-Host "Modes:"
-    Write-Host "  [1] Apprentice  - light tune-up, ~5-10 min (this version)" -ForegroundColor Green
-    Write-Host "  [2] Wizard      - coming in v0.2.0"
-    Write-Host "  [3] Archmage    - coming in v0.3.0"
-    Write-Host "  [Q] Quit"
-    $choice = Read-Host "Pick a mode"
+    # Question text is Yellow (v0.1.5): the whole prompt, options included.
+    Write-Host "Modes:" -ForegroundColor Yellow
+    Write-Host "  [1] Apprentice  - light tune-up, ~5-10 min (this version)" -ForegroundColor Yellow
+    Write-Host "  [2] Wizard      - coming in v0.2.0" -ForegroundColor Yellow
+    Write-Host "  [3] Archmage    - coming in v0.3.0" -ForegroundColor Yellow
+    Write-Host "  [Q] Quit" -ForegroundColor Yellow
+    Write-Host "Pick a mode: " -ForegroundColor Yellow -NoNewline
+    $choice = Read-Host
     if ($choice -eq "Q" -or $choice -eq "q") { return $null }
     if ($choice -ne "1") {
         Write-Host "Not in v$Script:Version yet - Apprentice is the only mode here." -ForegroundColor Yellow
@@ -114,6 +116,11 @@ function Read-ModeMenu {
     # "PSRunspace-Host", not "ConsoleHost", so a host-name gate would kill
     # the arrow keys in the .exe. ReadKey is tried instead, and any failure
     # falls back to number input.
+    # The menu repaints in place (v0.1.5): the banner prints once, then each
+    # keypress only rewrites the item lines via cursor positioning. The old
+    # code ran Clear-Host + full banner on every keypress, and Clear-Host in
+    # PS 5.1 is slow - that was the sluggish menu. If cursor positioning is
+    # unavailable, it falls back to the old Clear-Host repaint per keypress.
     # Returns 1 for Apprentice, or $null to quit.
     try { $null = [Console]::KeyAvailable } catch { return Read-NumberMode }
     $items = @("Apprentice", "Wizard", "Archmage")
@@ -121,14 +128,27 @@ function Read-ModeMenu {
     $details = @("light tune-up, ~5-10 min (this version)", "coming in v0.2.0", "coming in v0.3.0")
     $selected = 0
     try {
+        Clear-Host
+        Write-Banner
+        Write-Host "Modes:  (Up/Down, Enter, Q to quit)" -ForegroundColor Yellow
+        $menuTop = -1
+        $padWidth = 80
+        try { $menuTop = [Console]::CursorTop } catch { $menuTop = -1 }
+        try { $w = [Console]::WindowWidth; if ($w -gt 10) { $padWidth = $w - 1 } } catch { }
         while ($true) {
-            Clear-Host
-            Write-Banner
-            Write-Host "Modes:  (Up/Down, Enter, Q to quit)"
+            if ($menuTop -ge 0) {
+                try { [Console]::SetCursorPosition(0, $menuTop) } catch { $menuTop = -1 }
+            }
+            if ($menuTop -lt 0) {
+                Clear-Host
+                Write-Banner
+                Write-Host "Modes:  (Up/Down, Enter, Q to quit)" -ForegroundColor Yellow
+            }
             for ($i = 0; $i -lt $items.Count; $i++) {
                 $marker = "   "
                 if ($i -eq $selected) { $marker = " > " }
                 $line = "$marker[$($i + 1)] $($items[$i])  - $($details[$i])"
+                $line = $line.PadRight($padWidth)
                 if ($i -eq $selected) { Write-Host $line -ForegroundColor Green }
                 else { Write-Host $line }
             }
@@ -162,9 +182,12 @@ function Add-Result {
 }
 
 function Read-YesNo {
+    # Question text is Yellow (v0.1.5). Read-Host takes no colour, so the
+    # question is printed first and Read-Host reads with no prompt of its own.
     param([string]$Question)
     while ($true) {
-        $answer = Read-Host "$Question (Y/N)"
+        Write-Host "$Question (Y/N): " -ForegroundColor Yellow -NoNewline
+        $answer = Read-Host
         if ($answer -match '^[Yy]') { return $true }
         if ($answer -match '^[Nn]') { return $false }
         Write-Host "Please type Y or N." -ForegroundColor Yellow
@@ -219,7 +242,7 @@ Write-Host "Light tune-up for PCs that never get maintained."
 Write-Host "Only safe built-in commands, each shown before it runs."
 Write-Host ""
 
-# --- Mode picker: only Apprentice exists in v0.1.4 ---
+# --- Mode picker: only Apprentice exists in v0.1.5 ---
 $mode = Read-ModeMenu
 if ($null -eq $mode) {
     Write-Host "Bye."
@@ -313,11 +336,14 @@ Write-Step -Number 4 -Total $TotalSteps -Title "Clean old temp files" -Info "Onl
 $cutoff = (Get-Date).AddDays(-7)
 $tempPaths = @($env:TEMP, $winTemp)
 $tempSummary = @()
+$tempFiles = @{}
 foreach ($tp in $tempPaths) {
     Show-Command "Get-ChildItem $tp -Recurse -Force | Where-Object { LastWriteTime -lt (7 days ago) }"
-    $oldFiles = Get-ChildItem -Path $tp -Recurse -Force -ErrorAction SilentlyContinue |
-        Where-Object { -not $_.PSIsContainer -and $_.LastWriteTime -lt $cutoff }
-    $count = @($oldFiles).Count
+    Write-Host "  Scanning $tp ..."
+    $oldFiles = @(Get-ChildItem -Path $tp -Recurse -Force -ErrorAction SilentlyContinue |
+        Where-Object { -not $_.PSIsContainer -and $_.LastWriteTime -lt $cutoff })
+    $tempFiles[$tp] = $oldFiles
+    $count = $oldFiles.Count
     $bytes = 0
     foreach ($f in $oldFiles) { $bytes += $f.Length }
     $mb = [math]::Round($bytes / 1MB, 1)
@@ -329,13 +355,14 @@ if ($totalTempCount -eq 0) {
     Write-Host "  Nothing older than 7 days - skipping." -ForegroundColor Green
     Add-Result "Temp cleanup" "Skipped - nothing old"
 } elseif (Read-YesNo "Delete these $totalTempCount old temp files?") {
+    # Reuses the file lists from the scan above (v0.1.5) - no second full
+    # recursive scan, so the delete starts at once. Missing files (deleted
+    # between scan and confirm) just fail inside try/catch and are skipped.
     $deleted = 0
     foreach ($tp in $tempPaths) {
-        Get-ChildItem -Path $tp -Recurse -Force -ErrorAction SilentlyContinue |
-            Where-Object { -not $_.PSIsContainer -and $_.LastWriteTime -lt $cutoff } |
-            ForEach-Object {
-                try { Remove-Item -Path $_.FullName -Force -ErrorAction Stop; $deleted++ } catch { }
-            }
+        foreach ($f in $tempFiles[$tp]) {
+            try { Remove-Item -Path $f.FullName -Force -ErrorAction Stop; $deleted++ } catch { }
+        }
     }
     Write-Host "  Deleted $deleted of $totalTempCount files (locked ones skipped)." -ForegroundColor Green
     Add-Result "Temp cleanup" "Done ($deleted files)"
@@ -379,14 +406,16 @@ $activeScheme = powercfg /getactivescheme
 Write-Host "  Current plan: $activeScheme"
 Write-Host "  Recorded - you can switch back any time."
 Write-Host ""
-Write-Host "  [1] Keep my current plan"
-Write-Host "  [2] Balanced (best for most PCs)"
+# Question text is Yellow (v0.1.5): the option lines and the prompt itself.
+Write-Host "  [1] Keep my current plan" -ForegroundColor Yellow
+Write-Host "  [2] Balanced (best for most PCs)" -ForegroundColor Yellow
 if ($hasHighPerf) {
-    Write-Host "  [3] High Performance (desktop - more power, heat, noise)"
+    Write-Host "  [3] High Performance (desktop - more power, heat, noise)" -ForegroundColor Yellow
 } else {
-    Write-Host "  [3] High Performance - not available on this PC"
+    Write-Host "  [3] High Performance - not available on this PC" -ForegroundColor Yellow
 }
-$planChoice = Read-Host "Pick a power plan (1/2/3)"
+Write-Host "Pick a power plan (1/2/3): " -ForegroundColor Yellow -NoNewline
+$planChoice = Read-Host
 if ($planChoice -eq "2") {
     Show-Command "powercfg /setactive $balancedGuid"
     powercfg /setactive $balancedGuid
