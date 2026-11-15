@@ -1,4 +1,4 @@
-# win-opt.ps1 - Windows Optimizer Wizard, v0.3.2 (Apprentice + Wizard + Archmage)
+# win-opt.ps1 - Windows Optimizer Wizard, v0.3.3 (Apprentice + Wizard + Archmage)
 # Windows 10 and Windows 11. PowerShell 5.1 only. Run as administrator.
 # What it does: Apprentice (light tune-up) + Wizard (monthly pass: drive
 # health, DISM health check, SFC, chkdsk scan, Defender check, Windows
@@ -10,7 +10,7 @@
 # What it never does: no registry edits, no cleanmgr auto-run, no network
 # reset, no driver/app updates, no disabling of anything.
 
-$Script:Version = "0.3.2"
+$Script:Version = "0.3.3"
 $Script:Results = @()
 $Script:LogFile = $null
 $Script:StepNo = 0
@@ -265,11 +265,12 @@ function Read-YesNo {
     # question is printed first and Read-Host reads with no prompt of its own.
     param([string]$Question)
     while ($true) {
-        Write-Host "$Question (Y/N): " -ForegroundColor Yellow -NoNewline
+        Write-Host "$Question (Y/N/Q): " -ForegroundColor Yellow -NoNewline
         $answer = Read-Host
         if ($answer -match '^[Yy]') { return $true }
         if ($answer -match '^[Nn]') { return $false }
-        Write-Host "Please type Y or N." -ForegroundColor Yellow
+        if ($answer -match '^[Qq]') { return $false }
+        Write-Host "Please type Y, N, or Q." -ForegroundColor Yellow
     }
 }
 
@@ -319,11 +320,13 @@ Write-Header
 # --- Windows version (10 and 11 both supported) ---
 $os = Get-CimInstance Win32_OperatingSystem
 $build = [System.Environment]::OSVersion.Version.Build
-if ($build -ge 22000) { $winLabel = "Windows 11" } else { $winLabel = "Windows 10" }
+if ($build -ge 22000) { $winLabel = "Windows 11" }
+elseif ($build -ge 10240) { $winLabel = "Windows 10" }
+else { $winLabel = "Windows (build $build)" }
 Write-Host "Windows: $($os.Caption)  ($winLabel, build $build)"
 if ($winLabel -eq "Windows 10") {
-    Write-Host "Note: Windows 10 support ended 14 Oct 2025. Later versions cannot"
-    Write-Host "restore routine Windows 10 updates; win-opt runs the same on 10 and 11."
+    Write-Host "Note: Windows 10 support ended 14 Oct 2025, so it may no longer"
+    Write-Host "get routine updates. win-opt runs the same on 10 and 11."
 }
 if ($logFile) { Write-Host "Log file: $logFile" }
 Write-Host ""
@@ -966,6 +969,8 @@ Show-Command "powercfg /getactivescheme"
 $activeScheme = powercfg /getactivescheme
 Write-Host "  Current plan: $activeScheme"
 Write-Host "  Recorded - you can switch back any time."
+$originalPlanGuid = $null
+if ($activeScheme -match '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})') { $originalPlanGuid = $Matches[1] }
 Write-Host ""
 # Question text is Yellow (v0.1.5): the option lines and the prompt itself.
 Write-Host "  [1] Keep my current plan" -ForegroundColor Yellow
@@ -1012,9 +1017,12 @@ if ($planChoice -eq "2") {
             Add-Result "Power plan" "Skipped - kept current"
         }
     }
-} else {
+} elseif ($planChoice -eq "1") {
     Write-Host "  Kept your current plan."
     Add-Result "Power plan" "Skipped - kept current"
+} else {
+    Write-Host "  Unknown choice - keeping your current plan." -ForegroundColor Yellow
+    Add-Result "Power plan" "Skipped - unknown choice"
 }
 
 # --- Step: startup apps (list only - NO disable code in v1.0) ---
@@ -1023,7 +1031,7 @@ Show-Command "Get-CimInstance Win32_StartupCommand | Select-Object Name, Command
 try {
     $startup = Get-CimInstance Win32_StartupCommand -ErrorAction Stop |
         Select-Object Name, Command, Location, User
-    if ($startup) { $startup | Format-Table -AutoSize | Out-String | Write-Host }
+    if ($startup) { $startup | Format-Table -AutoSize -Wrap | Out-String | Write-Host }
     else { Write-Host "  No startup programs found." }
 } catch {
     Write-Host "  Could not list startup programs: $($_.Exception.Message)" -ForegroundColor Yellow
@@ -1067,6 +1075,10 @@ Write-Host ""
 Write-Host "What happened:"
 Write-Host "  - Restore point made (or today's one used)."
 Write-Host "  - Internet: $(if ($pingOk) { 'reachable' } else { 'not reachable (logged only)' })"
+$planChanged = $Script:Results | Where-Object { $_.Step -eq "Power plan" -and $_.Status -match '^Done' }
+if ($planChanged -and $originalPlanGuid) {
+    Write-Host "  - Power plan changed. To go back: powercfg /setactive $originalPlanGuid"
+}
 if ($mode -eq 1) {
     Write-Host "  - Deeper modes: Wizard (monthly), Archmage (quarterly)."
 } elseif ($mode -eq 2) {

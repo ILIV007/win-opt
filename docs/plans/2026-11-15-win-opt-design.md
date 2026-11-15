@@ -231,6 +231,18 @@ Just-in-time, minimal, organized (Iliya, 2026-11-15 — runtime questions are an
   no newline); all other output and the result parsing are unchanged.
   It sits between the native command and `Tee-Object` at all 9 sites.
 
+## v0.3.3 patch (2026-11-15, final polish)
+
+- OS label by build range (10240+ = Windows 10, else build number);
+  garbled Win10 end-of-support line rewritten.
+- Power plan: invalid choice says so; summary prints the
+  `powercfg /setactive` revert command for the recorded plan.
+- Read-YesNo: Q escapes (same as No); prompt reads (Y/N/Q).
+- Startup table wraps long paths instead of truncating.
+- Start-WinOpt.bat: trailing `pause` removed (script already pauses).
+- Site top tidied: one short meta line; SmartScreen note + extra
+  links moved under "How to use".
+
 ## v0.3.2 patch (2026-11-15, QA medium bugs M1–M5)
 
 - M1: flushdns checks `$LASTEXITCODE` (language-proof).

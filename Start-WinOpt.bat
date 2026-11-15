@@ -11,4 +11,3 @@ if %errorlevel%==0 (
   echo Requesting administrator rights...
   powershell -NoProfile -Command "Start-Process powershell.exe -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File \"%~dp0win-opt.ps1\"' -Verb RunAs"
 )
-pause

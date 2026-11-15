@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.3.3 — 2026-11-15
+
+Final polish: the remaining safe QA minors + a tidier site top.
+
+- OS label: builds below 22000 are no longer all called "Windows 10" —
+  only 10240+; anything else shows its build number. The garbled
+  "Later versions cannot restore routine Windows 10 updates" line is
+  rewritten in plain English.
+- Power plan: an invalid choice now says so instead of silently
+  keeping the plan; the summary prints the exact
+  `powercfg /setactive` command to go back to the recorded plan.
+- Read-YesNo: Q is an escape (same as No) — the prompt reads (Y/N/Q).
+- Startup list: long paths wrap instead of truncating.
+- Start-WinOpt.bat: the trailing `pause` is gone — the script already
+  pauses at the end, so the window no longer stops twice.
+- Site: the top is tidier — one short meta line under the buttons; the
+  SmartScreen note and the extra links moved under "How to use".
+
 ## v0.3.2 — 2026-11-15
 
 QA medium bugs M1–M5, from the 2026-11-15 checkup.
