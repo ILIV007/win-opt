@@ -230,3 +230,13 @@ Just-in-time, minimal, organized (Iliya, 2026-11-15 — runtime questions are an
   chkdsk percent lines into a single in-place line (carriage return,
   no newline); all other output and the result parsing are unchanged.
   It sits between the native command and `Tee-Object` at all 9 sites.
+
+## v0.3.2 patch (2026-11-15, QA medium bugs M1–M5)
+
+- M1: flushdns checks `$LASTEXITCODE` (language-proof).
+- M2: Optimize-Volume checks free space first via `Get-Volume`,
+  skips when under 5% free.
+- M3: temp cleanup prints live progress every 25 deleted files.
+- M4: declined UAC / failed admin relaunch prints a clear message
+  instead of an unhandled exception.
+- M5: the summary counts failures and skips out loud.

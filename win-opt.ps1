@@ -1,4 +1,4 @@
-# win-opt.ps1 - Windows Optimizer Wizard, v0.3.1 (Apprentice + Wizard + Archmage)
+# win-opt.ps1 - Windows Optimizer Wizard, v0.3.2 (Apprentice + Wizard + Archmage)
 # Windows 10 and Windows 11. PowerShell 5.1 only. Run as administrator.
 # What it does: Apprentice (light tune-up) + Wizard (monthly pass: drive
 # health, DISM health check, SFC, chkdsk scan, Defender check, Windows
@@ -10,7 +10,7 @@
 # What it never does: no registry edits, no cleanmgr auto-run, no network
 # reset, no driver/app updates, no disabling of anything.
 
-$Script:Version = "0.3.1"
+$Script:Version = "0.3.2"
 $Script:Results = @()
 $Script:LogFile = $null
 $Script:StepNo = 0
@@ -278,7 +278,17 @@ $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Pri
 $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host "Needs administrator rights. Relaunching as administrator..." -ForegroundColor Yellow
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+    try {
+        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs -ErrorAction Stop
+    } catch {
+        # M4: UAC declined (or relaunch failed) used to die silently with
+        # an unhandled exception. Say so plainly instead.
+        Write-Host "  Could not relaunch as administrator (UAC declined?)." -ForegroundColor Yellow
+        Write-Host "  Right-click Start-WinOpt.bat and choose 'Run as administrator'." -ForegroundColor Yellow
+        Write-Host "Press Enter to close."
+        Read-Host | Out-Null
+        exit 1
+    }
     exit
 }
 
@@ -845,8 +855,14 @@ Show-Command "ipconfig /flushdns"
 try {
     $dnsOut = ipconfig /flushdns 2>&1 | Out-String
     Write-Host $dnsOut
-    Write-Host "  DNS cache flushed." -ForegroundColor Green
-    Add-Result "Flush DNS" "Done"
+    # M1: green only on exit code 0 (language-proof - no output text match).
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  DNS cache flushed." -ForegroundColor Green
+        Add-Result "Flush DNS" "Done"
+    } else {
+        Write-Host "  Flush reported a problem (exit code $LASTEXITCODE) - see the output above." -ForegroundColor Yellow
+        Add-Result "Flush DNS" "Failed"
+    }
 } catch {
     Write-Host "  Flush failed: $($_.Exception.Message)" -ForegroundColor Yellow
     Add-Result "Flush DNS" "Failed"
@@ -879,12 +895,20 @@ if ($totalTempCount -eq 0) {
     # Reuses the file lists from the scan above (v0.1.5) - no second full
     # recursive scan, so the delete starts at once. Missing files (deleted
     # between scan and confirm) just fail inside try/catch and are skipped.
+    # M3: show progress every 25 files - a big temp folder used to sit
+    # silent for a long stretch.
     $deleted = 0
+    $progressShown = $false
     foreach ($tp in $tempPaths) {
         foreach ($f in $tempFiles[$tp]) {
             try { Remove-Item -Path $f.FullName -Force -ErrorAction Stop; $deleted++ } catch { }
+            if (($deleted -gt 0) -and (($deleted % 25) -eq 0)) {
+                Write-Host ("`r  Deleting... $deleted / $totalTempCount") -NoNewline
+                $progressShown = $true
+            }
         }
     }
+    if ($progressShown) { Write-Host "" }
     Write-Host "  Deleted $deleted of $totalTempCount files (locked ones skipped)." -ForegroundColor Green
     Add-Result "Temp cleanup" "Done ($deleted files)"
 } else {
@@ -906,13 +930,28 @@ Add-Result "Storage Sense guidance" "Done"
 # --- Step: optimize the system drive (media-aware) ---
 Step-Next -Title "Optimize drive $sysDrive" -Info "Media-aware: TRIM on SSDs (fast), defrag on hard drives (slower). Nothing forced onto the wrong type."
 Show-Command "Optimize-Volume -DriveLetter $sysDriveLetter"
+# M2: check free space first - optimizing a nearly-full drive is pointless.
+# Best-effort: if the volume cannot be read, run as before.
+$volFreeGB = $null
+$volSizeGB = $null
 try {
-    Optimize-Volume -DriveLetter $sysDriveLetter -ErrorAction Stop | Out-String | Write-Host
-    Write-Host "  Drive $sysDrive optimized." -ForegroundColor Green
-    Add-Result "Optimize drive $sysDrive" "Done"
-} catch {
-    Write-Host "  Optimize failed: $($_.Exception.Message)" -ForegroundColor Yellow
-    Add-Result "Optimize drive $sysDrive" "Failed"
+    $vol = Get-Volume -DriveLetter $sysDriveLetter -ErrorAction Stop
+    $volFreeGB = [math]::Round($vol.SizeRemaining / 1GB, 1)
+    $volSizeGB = [math]::Round($vol.Size / 1GB, 1)
+    Write-Host "  Free space: $volFreeGB GB of $volSizeGB GB."
+} catch { }
+if (($null -ne $volFreeGB) -and ($volSizeGB -gt 0) -and (($volFreeGB / $volSizeGB) -lt 0.05)) {
+    Write-Host "  Drive $sysDrive is almost full - skipping optimize, free space first." -ForegroundColor Yellow
+    Add-Result "Optimize drive $sysDrive" "Skipped - drive almost full"
+} else {
+    try {
+        Optimize-Volume -DriveLetter $sysDriveLetter -ErrorAction Stop | Out-String | Write-Host
+        Write-Host "  Drive $sysDrive optimized." -ForegroundColor Green
+        Add-Result "Optimize drive $sysDrive" "Done"
+    } catch {
+        Write-Host "  Optimize failed: $($_.Exception.Message)" -ForegroundColor Yellow
+        Add-Result "Optimize drive $sysDrive" "Failed"
+    }
 }
 
 # --- Step: power plan (record original, user chooses) ---
@@ -1013,6 +1052,16 @@ foreach ($r in $Script:Results) {
     $line = "  [$tag]  $($r.Step)"
     if ($detail) { $line += "  $detail" }
     Write-Host $line
+}
+# M5: the 100% bar and "done" header used to imply success even when steps
+# failed or were skipped. Say it plainly.
+$failedCount = @($Script:Results | Where-Object { $_.Status -match '^Failed' }).Count
+$skippedCount = @($Script:Results | Where-Object { $_.Status -match '^Skipped' }).Count
+if ($failedCount -gt 0) {
+    Write-Host "  $failedCount step(s) failed - see the [ FAIL ] lines above." -ForegroundColor Red
+}
+if ($skippedCount -gt 0) {
+    Write-Host "  $skippedCount step(s) skipped - see the [ SKIP ] lines above." -ForegroundColor Yellow
 }
 Write-Host ""
 Write-Host "What happened:"

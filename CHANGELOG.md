@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.2 — 2026-11-15
+
+QA medium bugs M1–M5, from the 2026-11-15 checkup.
+
+- M1: `ipconfig /flushdns` now checks `$LASTEXITCODE` — green only on
+  exit code 0 (language-proof, no output text match).
+- M2: Optimize-Volume checks free space first (best-effort
+  `Get-Volume`) and skips the step when the drive is under 5% free.
+- M3: temp cleanup shows live progress every 25 deleted files.
+- M4: declining the UAC prompt (or a failed admin relaunch) now prints
+  a clear message and how to run as admin, instead of dying with an
+  unhandled exception.
+- M5: the summary counts failures and skips out loud, so the 100% bar
+  no longer implies a clean run when steps failed or were skipped.
+
 ## v0.3.1 — 2026-11-15
 
 Patch from Iliya's first live Windows test (everything else passed).
